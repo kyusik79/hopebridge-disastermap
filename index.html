@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="희망브리지 재난현장지도 - 수해 구호현황과 현장 기록" />
+  <title>희망브리지 재난현장지도</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true"></div>
+      <div>
+        <div class="brand-name">희망브리지</div>
+        <div class="brand-sub">전국재해구호협회</div>
+      </div>
+    </div>
+
+    <div class="title-group">
+      <h1>수해 재난현장지도</h1>
+      <span>구호현황과 현장 기록</span>
+    </div>
+
+    <div class="asof">
+      <span>기준일</span>
+      <strong id="asof-text">불러오는 중</strong>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="map-panel">
+      <div class="map-toolbar">
+        <div class="metric-switch" role="group" aria-label="지도 표시 기준">
+          <button class="metric-btn active" data-metric="remaining_people">현재 미귀가</button>
+          <button class="metric-btn" data-metric="evacuated_people">누적 일시대피</button>
+        </div>
+        <button id="reset-view" class="ghost-btn" type="button">전국보기</button>
+      </div>
+
+      <div id="map-wrap">
+        <svg id="map" role="img" aria-label="대한민국 시군구별 수해 구호현황 지도"></svg>
+        <div id="map-loading" class="map-loading">
+          <div class="spinner"></div>
+          <p>전국 시군구 지도를 불러오고 있습니다.</p>
+        </div>
+        <div id="map-error" class="map-error hidden"></div>
+      </div>
+
+      <div class="legend">
+        <div class="legend-title">원 크기</div>
+        <div class="legend-row"><span class="dot dot-lg"></span><span>상대적으로 큼</span></div>
+        <div class="legend-row"><span class="dot dot-md"></span><span>중간</span></div>
+        <div class="legend-row"><span class="dot dot-sm"></span><span>작음</span></div>
+        <div class="legend-note">※ 원의 면적은 선택 지표의 규모에 비례합니다.</div>
+      </div>
+    </section>
+
+    <aside class="side-panel">
+      <section>
+        <div class="section-heading">
+          <div>
+            <div class="eyebrow">전국 현황</div>
+            <h2>수해 구호현황</h2>
+          </div>
+          <span class="source-pill">행안부 구호상황 보고</span>
+        </div>
+
+        <div class="summary-grid">
+          <div class="summary-card">
+            <span>피해 시·군·구</span>
+            <strong id="sum-regions">-</strong>
+            <small>개 지역</small>
+          </div>
+          <div class="summary-card">
+            <span>일시대피</span>
+            <strong id="sum-evacuated">-</strong>
+            <small>명</small>
+          </div>
+          <div class="summary-card emphasis">
+            <span>현재 미귀가</span>
+            <strong id="sum-remaining">-</strong>
+            <small>명</small>
+          </div>
+        </div>
+      </section>
+
+      <section class="ranking-section">
+        <div class="section-heading compact">
+          <div>
+            <div class="eyebrow">지역별 현황</div>
+            <h2 id="ranking-title">현재 미귀가 TOP 5</h2>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>순위</th>
+                <th>지역</th>
+                <th>일시대피</th>
+                <th>귀가</th>
+                <th>미귀가</th>
+              </tr>
+            </thead>
+            <tbody id="ranking-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="detail-section" id="detail-section">
+        <div class="detail-topline">
+          <div>
+            <div class="eyebrow">선택 지역</div>
+            <h2 id="detail-title">지역을 선택해 주세요</h2>
+          </div>
+          <button id="clear-selection" class="text-btn hidden" type="button">선택 해제</button>
+        </div>
+
+        <div id="detail-empty" class="empty-state">
+          지도 위 원 또는 지역별 현황 표를 클릭하면 상세 구호현황과 현장사진을 확인할 수 있습니다.
+        </div>
+
+        <div id="detail-content" class="hidden">
+          <div class="detail-stats">
+            <div><span>일시대피</span><strong id="detail-evacuated">-</strong></div>
+            <div><span>귀가</span><strong id="detail-returned">-</strong></div>
+            <div><span>미귀가</span><strong id="detail-remaining">-</strong></div>
+          </div>
+          <div class="detail-reason">
+            <span>주요 대피사유</span>
+            <p id="detail-reason">-</p>
+          </div>
+
+          <div class="photos-heading">
+            <h3>현장사진</h3>
+            <span id="photos-count">0장</span>
+          </div>
+          <div id="photo-grid" class="photo-grid"></div>
+          <div id="photo-empty" class="photo-empty hidden">
+            이 지역에 등록된 현장사진이 없습니다.
+          </div>
+        </div>
+      </section>
+
+      <section class="support-section">
+        <div class="section-heading compact">
+          <div>
+            <div class="eyebrow">희망브리지</div>
+            <h2>구호지원 현황</h2>
+          </div>
+        </div>
+        <div id="support-grid" class="support-grid"></div>
+        <p class="support-note">
+          ※ 지역별 배분량이 아닌 현장 반입·지원 총량입니다. 현장 상황에 따라 배분됩니다.
+        </p>
+      </section>
+
+      <footer class="data-note">
+        <div><strong>자료</strong> 행정안전부 구호상황 보고, 희망브리지 내부 지원실적</div>
+        <div>수치는 상황보고 갱신에 따라 변동될 수 있습니다.</div>
+      </footer>
+    </aside>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
