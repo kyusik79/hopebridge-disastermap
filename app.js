@@ -1,159 +1,357 @@
-import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+const svg =
+  d3.select("#map");
 
-const svg = d3.select("#map");
-const mapWrap = document.getElementById("map-wrap");
-const loadingEl = document.getElementById("map-loading");
-const errorEl = document.getElementById("map-error");
+const mapWrap =
+  document.getElementById(
+    "map-wrap"
+  );
+
+const loadingEl =
+  document.getElementById(
+    "map-loading"
+  );
+
+const errorEl =
+  document.getElementById(
+    "map-error"
+  );
+
 
 let disaster = [];
-let photos = [];
+
 let support = [];
+
+let photos = [];
+
 let boundaries = null;
-let selectedCode = null;
-let activeMetric = "remaining_people";
+
+let activeMetric =
+  "remaining_people";
+
 let width = 900;
+
 let height = 760;
 
+
+const fmt =
+  new Intl.NumberFormat(
+    "ko-KR"
+  );
+
+
 const metricNames = {
-  remaining_people: "현재 미귀가",
-  evacuated_people: "누적 일시대피",
+
+  remaining_people:
+    "현재 미귀가",
+
+  evacuated_people:
+    "누적 일시대피"
+
 };
 
-const fmt = new Intl.NumberFormat("ko-KR");
 
 /*
-  현재 시범 데이터에 포함된 피해지역 대표좌표
-  향후 정식 시군구 GeoJSON으로 교체하면 이 좌표표는 제거 가능합니다.
+  시군구 지도 데이터
+
+  southkorea-maps 공개 저장소의
+  municipalities GeoJSON 사용
 */
+const MAP_URL =
+  "https://cdn.jsdelivr.net/gh/southkorea/southkorea-maps@master/gadm/json/skorea-municipalities-geo.json";
+
+
+/*
+  현재 행안부 8보 피해지역 대표 좌표
+*/
+
 const regionPoints = {
-  "26170": [129.0474, 35.1293], // 부산 동구
-  "26200": [129.0679, 35.0912], // 부산 영도구
-  "26380": [128.9747, 35.1046], // 부산 사하구
-  "26440": [128.9805, 35.2122], // 부산 강서구
 
-  "48220": [128.4330, 34.8544], // 통영시
-  "48240": [128.0642, 35.0038], // 사천시
-  "48310": [128.6211, 34.8806], // 거제시
-  "48840": [127.8925, 34.8375], // 남해군
+  "26170": [
+    129.0474,
+    35.1293
+  ],
 
-  "50130": [126.5601, 33.2541], // 서귀포시
+  "26200": [
+    129.0679,
+    35.0912
+  ],
+
+  "26380": [
+    128.9747,
+    35.1046
+  ],
+
+  "26440": [
+    128.9805,
+    35.2122
+  ],
+
+  "48220": [
+    128.4330,
+    34.8544
+  ],
+
+  "48240": [
+    128.0642,
+    35.0038
+  ],
+
+  "48310": [
+    128.6211,
+    34.8806
+  ],
+
+  "48840": [
+    127.8925,
+    34.8375
+  ],
+
+  "50130": [
+    126.5601,
+    33.2541
+  ]
+
 };
 
-const zoom = d3
-  .zoom()
-  .scaleExtent([1, 8])
-  .on("zoom", (event) => {
-    svg.select(".map-root").attr("transform", event.transform);
-  });
+
+/*
+  지도 확대·축소
+*/
+
+const zoom =
+  d3.zoom()
+    .scaleExtent([
+      1,
+      8
+    ])
+    .on(
+      "zoom",
+      event => {
+
+        svg
+          .select(
+            ".map-root"
+          )
+          .attr(
+            "transform",
+            event.transform
+          );
+
+      }
+    );
+
 
 svg.call(zoom);
 
-function parseNumber(value) {
-  if (value === null || value === undefined || value === "") {
-    return 0;
-  }
+
+/*
+  숫자 변환
+*/
+
+function numberValue(
+  value
+) {
 
   return (
     Number(
-      String(value)
-        .replaceAll(",", "")
+      String(
+        value ?? ""
+      )
+        .replaceAll(
+          ",",
+          ""
+        )
         .trim()
     ) || 0
   );
+
 }
 
-async function loadCsv(path) {
-  const response = await fetch(path, {
-    cache: "no-store",
-  });
 
-  if (!response.ok) {
-    throw new Error(`${path} 파일을 불러오지 못했습니다.`);
+/*
+  CSV 불러오기
+*/
+
+async function loadCsv(
+  path
+) {
+
+  const response =
+    await fetch(
+      path,
+      {
+        cache:
+          "no-store"
+      }
+    );
+
+
+  if (
+    !response.ok
+  ) {
+
+    throw new Error(
+      `${path} 로드 실패 (${response.status})`
+    );
+
   }
 
-  const text = await response.text();
 
-  return d3.csvParse(text);
-}
-
-async function loadGeoJson(path) {
-  const response = await fetch(path, {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error(`${path} 파일을 불러오지 못했습니다.`);
-  }
-
-  return await response.json();
-}
-
-function resize() {
-  const box = mapWrap.getBoundingClientRect();
-
-  width = Math.max(520, box.width);
-  height = Math.max(520, box.height);
-
-  svg.attr(
-    "viewBox",
-    `0 0 ${width} ${height}`
+  return d3.csvParse(
+    await response.text()
   );
 
-  if (boundaries) {
-    drawMap();
-  }
 }
 
+
+/*
+  GeoJSON 불러오기
+*/
+
+async function loadJson(
+  path
+) {
+
+  const response =
+    await fetch(
+      path,
+      {
+        cache:
+          "no-store"
+      }
+    );
+
+
+  if (
+    !response.ok
+  ) {
+
+    throw new Error(
+      `지도 데이터 로드 실패 (${response.status})`
+    );
+
+  }
+
+
+  return await response.json();
+
+}
+
+
+/*
+  초기 실행
+*/
+
 async function init() {
+
   try {
+
     [
       disaster,
       support,
       photos,
-      boundaries,
-    ] = await Promise.all([
-      loadCsv("/data/disaster.csv"),
-      loadCsv("/data/support.csv"),
-      loadCsv("/data/photos.csv"),
-      loadGeoJson("/data/korea_sgg.geojson"),
-    ]);
+      boundaries
 
-    disaster = disaster.map((d) => ({
-      ...d,
+    ] =
+      await Promise.all([
 
-      sgg_code: String(
-        d.sgg_code || ""
-      ).trim(),
+        loadCsv(
+          "data/disaster.csv"
+        ),
 
-      evacuated_households:
-        parseNumber(d.evacuated_households),
+        loadCsv(
+          "data/support.csv"
+        ),
 
-      evacuated_people:
-        parseNumber(d.evacuated_people),
+        loadCsv(
+          "data/photos.csv"
+        ),
 
-      returned_households:
-        parseNumber(d.returned_households),
+        loadJson(
+          MAP_URL
+        )
 
-      returned_people:
-        parseNumber(d.returned_people),
+      ]);
 
-      remaining_households:
-        parseNumber(d.remaining_households),
 
-      remaining_people:
-        parseNumber(d.remaining_people),
-    }));
+    /*
+      숫자 필드 정리
+    */
 
-    support = support.map((d) => ({
-      ...d,
-      quantity: parseNumber(d.quantity),
-    }));
+    disaster =
+      disaster.map(
+        d => ({
 
-    photos = photos.filter((d) =>
-      String(d.file || "").trim()
-    );
+          ...d,
 
-    updateAsOf();
+          sgg_code:
+            String(
+              d.sgg_code ||
+              ""
+            )
+              .trim(),
+
+          evacuated_people:
+            numberValue(
+              d.evacuated_people
+            ),
+
+          returned_people:
+            numberValue(
+              d.returned_people
+            ),
+
+          remaining_people:
+            numberValue(
+              d.remaining_people
+            ),
+
+          evacuated_households:
+            numberValue(
+              d.evacuated_households
+            ),
+
+          returned_households:
+            numberValue(
+              d.returned_households
+            ),
+
+          remaining_households:
+            numberValue(
+              d.remaining_households
+            )
+
+        })
+      );
+
+
+    support =
+      support.map(
+        d => ({
+
+          ...d,
+
+          quantity:
+            numberValue(
+              d.quantity
+            )
+
+        })
+      );
+
+
+    photos =
+      photos.filter(
+        d =>
+          String(
+            d.file ||
+            ""
+          )
+            .trim()
+      );
+
+
+    updateHeader();
 
     updateSummary();
 
@@ -161,200 +359,369 @@ async function init() {
 
     renderSupport();
 
-    loadingEl.classList.add("hidden");
+    renderEmptyPhotos();
+
+
+    loadingEl
+      .classList
+      .add(
+        "hidden"
+      );
+
 
     resize();
 
-    window.addEventListener(
-      "resize",
-      debounce(resize, 120)
+
+    window
+      .addEventListener(
+        "resize",
+        debounce(
+          resize,
+          120
+        )
+      );
+
+  }
+
+  catch (
+    error
+  ) {
+
+    console.error(
+      error
     );
-  } catch (error) {
-    console.error(error);
 
-    loadingEl.classList.add("hidden");
 
-    errorEl.classList.remove("hidden");
+    loadingEl
+      .classList
+      .add(
+        "hidden"
+      );
+
+
+    errorEl
+      .classList
+      .remove(
+        "hidden"
+      );
+
 
     errorEl.innerHTML = `
-      <strong>데이터를 불러오지 못했습니다.</strong>
 
-      <p>
-        ${error.message}
-      </p>
+      <strong>
+        데이터를 불러오지 못했습니다.
+      </strong>
 
-      <p
+      <div
         style="
-          max-width:440px;
-          text-align:center;
-          line-height:1.55;
+          margin-top:10px;
         "
       >
-        data 폴더 안에
-        disaster.csv,
-        support.csv,
-        photos.csv,
-        korea_sgg.geojson
-        파일이 모두 있는지 확인해 주세요.
-      </p>
+        ${error.message}
+      </div>
+
     `;
+
   }
+
 }
 
-function updateAsOf() {
+
+/*
+  지도 크기
+*/
+
+function resize() {
+
+  const rect =
+    mapWrap
+      .getBoundingClientRect();
+
+
+  width =
+    Math.max(
+      560,
+      rect.width
+    );
+
+
+  height =
+    Math.max(
+      560,
+      rect.height
+    );
+
+
+  svg.attr(
+    "viewBox",
+    `0 0 ${width} ${height}`
+  );
+
+
+  if (
+    boundaries
+  ) {
+
+    drawMap();
+
+  }
+
+}
+
+
+/*
+  기준시각
+*/
+
+function updateHeader() {
+
   const first =
     disaster.find(
-      (d) => d.as_of
+      d =>
+        d.as_of
     );
 
-  const element =
-    document.getElementById(
+
+  document
+    .getElementById(
       "asof-text"
-    );
+    )
+    .textContent =
+      first?.as_of ||
+      "-";
 
-  if (element) {
-    element.textContent =
-      first?.as_of || "-";
-  }
 }
+
+
+/*
+  전국 합계
+*/
 
 function updateSummary() {
-  const totalEvacuated =
-    d3.sum(
-      disaster,
-      (d) => d.evacuated_people
-    );
 
-  const totalRemaining =
-    d3.sum(
-      disaster,
-      (d) => d.remaining_people
-    );
+  document
+    .getElementById(
+      "sum-regions"
+    )
+    .textContent =
+      fmt.format(
+        disaster.length
+      );
 
-  document.getElementById(
-    "sum-regions"
-  ).textContent =
-    fmt.format(disaster.length);
 
-  document.getElementById(
-    "sum-evacuated"
-  ).textContent =
-    fmt.format(totalEvacuated);
+  document
+    .getElementById(
+      "sum-evacuated"
+    )
+    .textContent =
+      fmt.format(
+        d3.sum(
+          disaster,
+          d =>
+            d.evacuated_people
+        )
+      );
 
-  document.getElementById(
-    "sum-remaining"
-  ).textContent =
-    fmt.format(totalRemaining);
+
+  document
+    .getElementById(
+      "sum-remaining"
+    )
+    .textContent =
+      fmt.format(
+        d3.sum(
+          disaster,
+          d =>
+            d.remaining_people
+        )
+      );
+
 }
 
-function updateRanking() {
-  const rows = [
-    ...disaster,
-  ]
-    .sort(
-      (a, b) =>
-        b[activeMetric] -
-        a[activeMetric]
-    )
-    .slice(0, 5);
 
-  document.getElementById(
-    "ranking-title"
-  ).textContent =
-    `${metricNames[activeMetric]} TOP 5`;
+/*
+  TOP5
+*/
+
+function updateRanking() {
+
+  const rows =
+    [
+      ...disaster
+    ]
+      .sort(
+        (
+          a,
+          b
+        ) =>
+          b[
+            activeMetric
+          ]
+          -
+          a[
+            activeMetric
+          ]
+      )
+      .slice(
+        0,
+        5
+      );
+
+
+  document
+    .getElementById(
+      "ranking-title"
+    )
+    .textContent =
+      `${metricNames[activeMetric]} TOP 5`;
+
 
   const tbody =
-    document.getElementById(
-      "ranking-body"
-    );
+    document
+      .getElementById(
+        "ranking-body"
+      );
 
-  tbody.innerHTML = "";
 
-  rows.forEach((d, index) => {
-    const tr =
-      document.createElement("tr");
+  tbody.innerHTML =
+    "";
 
-    tr.innerHTML = `
-      <td>
-        ${index + 1}
-      </td>
 
-      <td>
-        ${d.sido} ${d.sgg}
-      </td>
+  rows.forEach(
+    (
+      d,
+      index
+    ) => {
 
-      <td>
-        ${fmt.format(
-          d.evacuated_people
-        )}
-      </td>
+      const tr =
+        document
+          .createElement(
+            "tr"
+          );
 
-      <td>
-        ${fmt.format(
-          d.returned_people
-        )}
-      </td>
 
-      <td>
-        <strong>
+      tr.innerHTML = `
+
+        <td>
+          ${index + 1}
+        </td>
+
+        <td>
+          ${d.sido} ${d.sgg}
+        </td>
+
+        <td>
+          ${fmt.format(
+            d.evacuated_people
+          )}
+        </td>
+
+        <td>
+          ${fmt.format(
+            d.returned_people
+          )}
+        </td>
+
+        <td>
           ${fmt.format(
             d.remaining_people
           )}
-        </strong>
-      </td>
-    `;
+        </td>
 
-    tr.addEventListener(
-      "click",
-      () =>
-        selectRegion(
-          d.sgg_code
-        )
-    );
+      `;
 
-    tbody.appendChild(tr);
-  });
+
+      tr
+        .addEventListener(
+          "click",
+          () =>
+            selectRegion(
+              d
+            )
+        );
+
+
+      tbody
+        .appendChild(
+          tr
+        );
+
+    }
+  );
+
 }
 
+
+/*
+  지도 그리기
+*/
+
 function drawMap() {
-  svg.selectAll("*").remove();
+
+  svg
+    .selectAll(
+      "*"
+    )
+    .remove();
+
 
   const root =
     svg
-      .append("g")
+      .append(
+        "g"
+      )
       .attr(
         "class",
         "map-root"
       );
 
-  const projection =
-    d3.geoMercator();
 
-  projection.fitExtent(
-    [
-      [65, 68],
-      [
-        width - 65,
-        height - 58,
-      ],
-    ],
-    boundaries
-  );
+  const projection =
+    d3
+      .geoMercator()
+      .fitExtent(
+        [
+
+          [
+            55,
+            60
+          ],
+
+          [
+            width - 55,
+            height - 55
+          ]
+
+        ],
+
+        boundaries
+      );
+
 
   const path =
-    d3.geoPath(projection);
+    d3
+      .geoPath(
+        projection
+      );
+
 
   /*
-    대한민국 외곽선
+    시군구 경계
   */
 
   root
-    .append("g")
-    .selectAll("path")
+    .append(
+      "g"
+    )
+    .selectAll(
+      "path"
+    )
     .data(
       boundaries.features
     )
-    .join("path")
+    .join(
+      "path"
+    )
     .attr(
       "class",
       "region"
@@ -364,90 +731,113 @@ function drawMap() {
       path
     );
 
+
   /*
-    선택한 지표값이 1 이상인 지역만
-    지도에 원으로 표시
+    피해지역 중 값이 있는 지역만
   */
 
   const positive =
     disaster.filter(
-      (d) =>
-        d[activeMetric] > 0 &&
+      d =>
+        d[
+          activeMetric
+        ] > 0
+        &&
         regionPoints[
           d.sgg_code
         ]
     );
 
+
   const maxValue =
     d3.max(
       positive,
-      (d) =>
-        d[activeMetric]
+      d =>
+        d[
+          activeMetric
+        ]
     ) || 1;
 
+
   /*
-    원의 면적이 값에 비례하도록
-    제곱근 스케일 사용
+    원 면적 비례
   */
 
   const radius =
     d3
       .scaleSqrt()
-      .domain([
-        1,
-        maxValue,
-      ])
-      .range([
-        7,
-        Math.min(
-          48,
-          Math.max(
-            34,
-            width * 0.055
-          )
-        ),
-      ]);
+      .domain(
+        [
+          1,
+          maxValue
+        ]
+      )
+      .range(
+        [
+          7,
+          48
+        ]
+      );
+
 
   const points =
-    positive.map((d) => {
-      const xy =
-        projection(
-          regionPoints[
-            d.sgg_code
-          ]
-        );
+    positive.map(
+      d => {
 
-      return {
-        ...d,
+        const [
+          x,
+          y
+        ] =
+          projection(
+            regionPoints[
+              d.sgg_code
+            ]
+          );
 
-        x: xy[0],
 
-        y: xy[1],
+        return {
 
-        r: radius(
-          d[activeMetric]
-        ),
-      };
-    });
+          ...d,
 
-  const group =
+          x,
+
+          y,
+
+          r:
+            radius(
+              d[
+                activeMetric
+              ]
+            )
+
+        };
+
+      }
+    );
+
+
+  /*
+    원 표시
+  */
+
+  const groups =
     root
-      .append("g")
-      .attr(
-        "class",
-        "bubble-layer"
+      .append(
+        "g"
       )
-      .selectAll("g")
-      .data(points)
-      .join("g")
+      .selectAll(
+        "g"
+      )
+      .data(
+        points
+      )
+      .join(
+        "g"
+      )
       .attr(
         "transform",
-        (d) =>
+        d =>
           `translate(${d.x},${d.y})`
-      )
-      .style(
-        "cursor",
-        "pointer"
       )
       .on(
         "click",
@@ -455,386 +845,419 @@ function drawMap() {
           event,
           d
         ) => {
-          event.stopPropagation();
+
+          event
+            .stopPropagation();
+
 
           selectRegion(
-            d.sgg_code
+            d
           );
+
         }
       );
 
-  group
-    .append("circle")
+
+  groups
+    .append(
+      "circle"
+    )
     .attr(
       "class",
       "bubble"
     )
     .attr(
       "r",
-      (d) => d.r
+      d =>
+        d.r
     );
 
+
   /*
-    큰 원에는 숫자 표시
+    원 안 숫자
   */
 
-  group.each(function (d) {
-    const g =
-      d3.select(this);
+  groups
+    .filter(
+      d =>
+        d.r >= 11
+    )
+    .append(
+      "text"
+    )
+    .attr(
+      "class",
+      "bubble-value"
+    )
+    .attr(
+      "y",
+      5
+    )
+    .style(
+      "font-size",
+      d =>
+        d.r >= 22
+          ? "17px"
+          : "10px"
+    )
+    .text(
+      d =>
+        fmt.format(
+          d[
+            activeMetric
+          ]
+        )
+    );
 
-    if (d.r >= 22) {
-      const text =
-        g
-          .append("text")
-          .attr(
-            "class",
-            "bubble-label"
-          );
 
-      text
-        .append("tspan")
-        .attr(
-          "class",
-          "value"
-        )
-        .attr(
-          "x",
-          0
-        )
-        .attr(
-          "dy",
-          "0.35em"
-        )
-        .text(
-          fmt.format(
-            d[activeMetric]
-          )
-        );
+  /*
+    지역명
+  */
 
-      /*
-        원 오른쪽에 지역명 표시
-      */
+  groups
+    .append(
+      "text"
+    )
+    .attr(
+      "class",
+      "map-place-label"
+    )
+    .attr(
+      "x",
+      d =>
+        d.r + 9
+    )
+    .attr(
+      "y",
+      4
+    )
+    .text(
+      d =>
+        d.sgg
+    );
 
-      g
-        .append("text")
-        .attr(
-          "x",
-          d.r + 9
-        )
-        .attr(
-          "y",
-          4
-        )
-        .attr(
-          "class",
-          "map-place-label"
-        )
-        .text(
-          d.sgg
-        );
-    } else if (
-      d.r >= 11
-    ) {
-      g
-        .append("text")
-        .attr(
-          "class",
-          "bubble-label"
-        )
-        .attr(
-          "y",
-          4
-        )
-        .style(
-          "font-size",
-          "11px"
-        )
-        .text(
-          fmt.format(
-            d[activeMetric]
-          )
-        );
-
-      g
-        .append("text")
-        .attr(
-          "x",
-          d.r + 7
-        )
-        .attr(
-          "y",
-          4
-        )
-        .attr(
-          "class",
-          "map-place-label small"
-        )
-        .text(
-          d.sgg
-        );
-    }
-  });
 }
+
+
+/*
+  지역 선택
+*/
 
 function selectRegion(
-  code
+  d
 ) {
-  selectedCode =
-    String(code);
-
-  const d =
-    disaster.find(
-      (row) =>
-        row.sgg_code ===
-        selectedCode
-    );
-
-  if (!d) {
-    return;
-  }
 
   document
     .getElementById(
       "detail-empty"
     )
-    .classList.add(
+    .classList
+    .add(
       "hidden"
     );
+
 
   document
     .getElementById(
       "detail-content"
     )
-    .classList.remove(
+    .classList
+    .remove(
       "hidden"
     );
+
 
   document
     .getElementById(
       "clear-selection"
     )
-    .classList.remove(
+    .classList
+    .remove(
       "hidden"
     );
 
-  document.getElementById(
-    "detail-title"
-  ).textContent =
-    `${d.sido} ${d.sgg}`;
-
-  document.getElementById(
-    "detail-evacuated"
-  ).textContent =
-    `${fmt.format(
-      d.evacuated_people
-    )}명`;
-
-  document.getElementById(
-    "detail-returned"
-  ).textContent =
-    `${fmt.format(
-      d.returned_people
-    )}명`;
-
-  document.getElementById(
-    "detail-remaining"
-  ).textContent =
-    `${fmt.format(
-      d.remaining_people
-    )}명`;
-
-  document.getElementById(
-    "detail-reason"
-  ).textContent =
-    d.evacuation_reason ||
-    "-";
-
-  renderPhotos(d);
-
-  /*
-    선택지역 확대
-  */
-
-  const position =
-    regionPoints[
-      selectedCode
-    ];
-
-  if (position) {
-    const projection =
-      d3
-        .geoMercator()
-        .fitExtent(
-          [
-            [65, 68],
-            [
-              width - 65,
-              height - 58,
-            ],
-          ],
-          boundaries
-        );
-
-    const [
-      x,
-      y,
-    ] =
-      projection(
-        position
-      );
-
-    const scale =
-      2.8;
-
-    svg
-      .transition()
-      .duration(450)
-      .call(
-        zoom.transform,
-
-        d3.zoomIdentity
-          .translate(
-            width / 2 -
-              scale * x,
-
-            height / 2 -
-              scale * y
-          )
-          .scale(scale)
-      );
-  }
-}
-
-function clearSelection() {
-  selectedCode = null;
 
   document
     .getElementById(
-      "detail-empty"
+      "detail-title"
     )
-    .classList.remove(
-      "hidden"
-    );
+    .textContent =
+      `${d.sido} ${d.sgg}`;
+
 
   document
     .getElementById(
-      "detail-content"
+      "detail-evacuated"
     )
-    .classList.add(
-      "hidden"
-    );
+    .textContent =
+      `${fmt.format(
+        d.evacuated_people
+      )}명`;
+
 
   document
     .getElementById(
-      "clear-selection"
+      "detail-returned"
     )
-    .classList.add(
-      "hidden"
-    );
+    .textContent =
+      `${fmt.format(
+        d.returned_people
+      )}명`;
 
-  document.getElementById(
-    "detail-title"
-  ).textContent =
-    "지역을 선택해 주세요";
 
-  resetView();
-}
+  document
+    .getElementById(
+      "detail-remaining"
+    )
+    .textContent =
+      `${fmt.format(
+        d.remaining_people
+      )}명`;
 
-function renderPhotos(
-  region
-) {
-  const arr =
-    photos.filter(
-      (photo) =>
-        photo.sgg_code ===
-        region.sgg_code
-    );
 
-  const grid =
-    document.getElementById(
-      "photo-grid"
-    );
+  document
+    .getElementById(
+      "detail-reason"
+    )
+    .textContent =
+      d.evacuation_reason
+      ||
+      "-";
 
-  const empty =
-    document.getElementById(
-      "photo-empty"
-    );
 
-  document.getElementById(
-    "photos-count"
-  ).textContent =
-    `${arr.length}장`;
-
-  grid.innerHTML = "";
-
-  empty.classList.toggle(
-    "hidden",
-    arr.length > 0
+  renderPhotos(
+    d.sgg_code
   );
 
+}
+
+
+/*
+  선택 해제
+*/
+
+function clearSelection() {
+
+  document
+    .getElementById(
+      "detail-empty"
+    )
+    .classList
+    .remove(
+      "hidden"
+    );
+
+
+  document
+    .getElementById(
+      "detail-content"
+    )
+    .classList
+    .add(
+      "hidden"
+    );
+
+
+  document
+    .getElementById(
+      "clear-selection"
+    )
+    .classList
+    .add(
+      "hidden"
+    );
+
+
+  document
+    .getElementById(
+      "detail-title"
+    )
+    .textContent =
+      "지역을 선택해 주세요";
+
+
+  renderEmptyPhotos();
+
+}
+
+
+/*
+  현장사진
+*/
+
+function renderPhotos(
+  code
+) {
+
+  const arr =
+    photos.filter(
+      p =>
+        String(
+          p.sgg_code
+        )
+        ===
+        String(
+          code
+        )
+    );
+
+
+  const grid =
+    document
+      .getElementById(
+        "photo-grid"
+      );
+
+
+  const empty =
+    document
+      .getElementById(
+        "photo-empty"
+      );
+
+
+  document
+    .getElementById(
+      "photos-count"
+    )
+    .textContent =
+      `${arr.length}장`;
+
+
+  grid.innerHTML =
+    "";
+
+
+  empty
+    .classList
+    .toggle(
+      "hidden",
+      arr.length > 0
+    );
+
+
   arr.forEach(
-    (photo) => {
+    p => {
+
       const anchor =
-        document.createElement(
-          "a"
-        );
+        document
+          .createElement(
+            "a"
+          );
+
 
       anchor.className =
         "photo-card";
 
+
       anchor.href =
-        photo.file;
+        p.file;
+
 
       anchor.target =
         "_blank";
 
+
       anchor.rel =
         "noopener";
 
-      anchor.dataset.caption =
-        photo.caption || "";
 
       anchor.innerHTML = `
+
         <img
-          src="${photo.file}"
-          alt="${escapeHtml(
-            photo.caption ||
-              `${region.sgg} 현장사진`
-          )}"
-          loading="lazy"
+
+          src="${p.file}"
+
+          alt="${
+            p.caption ||
+            "현장사진"
+          }"
+
         >
+
       `;
 
-      grid.appendChild(
-        anchor
-      );
-    }
-  );
-}
 
-function renderSupport() {
-  const grid =
-    document.getElementById(
-      "support-grid"
-    );
-
-  grid.innerHTML = "";
-
-  support.forEach(
-    (d) => {
-      const card =
-        document.createElement(
-          "div"
+      grid
+        .appendChild(
+          anchor
         );
 
-      card.className =
+    }
+  );
+
+}
+
+
+/*
+  사진 없음
+*/
+
+function renderEmptyPhotos() {
+
+  document
+    .getElementById(
+      "photo-grid"
+    )
+    .innerHTML =
+      "";
+
+
+  document
+    .getElementById(
+      "photos-count"
+    )
+    .textContent =
+      "0장";
+
+
+  document
+    .getElementById(
+      "photo-empty"
+    )
+    .classList
+    .remove(
+      "hidden"
+    );
+
+}
+
+
+/*
+  희망브리지 지원현황
+*/
+
+function renderSupport() {
+
+  const grid =
+    document
+      .getElementById(
+        "support-grid"
+      );
+
+
+  grid.innerHTML =
+    "";
+
+
+  support.forEach(
+    d => {
+
+      const div =
+        document
+          .createElement(
+            "div"
+          );
+
+
+      div.className =
         "support-card";
 
-      card.innerHTML = `
+
+      div.innerHTML = `
+
         <span>
-          ${escapeHtml(
-            d.item
-          )}
+          ${d.item}
         </span>
 
         <strong>
@@ -844,128 +1267,162 @@ function renderSupport() {
         </strong>
 
         <small>
-          ${escapeHtml(
-            d.unit
-          )}
+          ${d.unit}
         </small>
+
       `;
 
-      grid.appendChild(
-        card
-      );
+
+      grid
+        .appendChild(
+          div
+        );
+
     }
   );
+
 }
 
-function resetView() {
-  svg
-    .transition()
-    .duration(450)
-    .call(
-      zoom.transform,
-      d3.zoomIdentity
-    );
-}
 
 /*
-  상단 지표 선택 버튼
+  지표 변경
 */
 
 document
   .querySelectorAll(
     ".metric-btn"
   )
-  .forEach((button) => {
-    button.addEventListener(
-      "click",
-      () => {
-        document
-          .querySelectorAll(
-            ".metric-btn"
-          )
-          .forEach(
-            (b) =>
-              b.classList.remove(
-                "active"
-              )
-          );
+  .forEach(
+    button => {
 
-        button.classList.add(
-          "active"
+      button
+        .addEventListener(
+          "click",
+          () => {
+
+            document
+              .querySelectorAll(
+                ".metric-btn"
+              )
+              .forEach(
+                b =>
+                  b
+                    .classList
+                    .remove(
+                      "active"
+                    )
+              );
+
+
+            button
+              .classList
+              .add(
+                "active"
+              );
+
+
+            activeMetric =
+              button.dataset.metric;
+
+
+            document
+              .getElementById(
+                "legend-metric"
+              )
+              .textContent =
+                activeMetric
+                ===
+                "remaining_people"
+                ?
+                "(미귀가 인원)"
+                :
+                "(일시대피 인원)";
+
+
+            updateRanking();
+
+            drawMap();
+
+          }
         );
 
-        activeMetric =
-          button.dataset.metric;
+    }
+  );
 
-        updateRanking();
 
-        drawMap();
-      }
-    );
-  });
+/*
+  전국보기
+*/
 
 document
   .getElementById(
     "reset-view"
   )
-  ?.addEventListener(
+  .addEventListener(
     "click",
-    resetView
+    () => {
+
+      svg
+        .transition()
+        .duration(
+          350
+        )
+        .call(
+          zoom.transform,
+          d3.zoomIdentity
+        );
+
+    }
   );
+
+
+/*
+  선택 해제
+*/
 
 document
   .getElementById(
     "clear-selection"
   )
-  ?.addEventListener(
+  .addEventListener(
     "click",
     clearSelection
   );
 
-function escapeHtml(
-  str
-) {
-  return String(str)
-    .replaceAll(
-      "&",
-      "&amp;"
-    )
-    .replaceAll(
-      "<",
-      "&lt;"
-    )
-    .replaceAll(
-      ">",
-      "&gt;"
-    )
-    .replaceAll(
-      '"',
-      "&quot;"
-    )
-    .replaceAll(
-      "'",
-      "&#039;"
-    );
-}
 
 function debounce(
   fn,
   delay
 ) {
+
   let timer;
 
-  return (...args) => {
+
+  return (
+    ...args
+  ) => {
+
     clearTimeout(
       timer
     );
 
+
     timer =
       setTimeout(
         () =>
-          fn(...args),
+          fn(
+            ...args
+          ),
         delay
       );
+
   };
+
 }
+
+
+/*
+  시작
+*/
 
 init();
