@@ -128,9 +128,9 @@ function excelDateToText(v) {
   if (v === null || v === undefined || v === "" || v === "-") return "-";
 
   /*
-    XLSX에서 cellDates:true로 읽은 날짜는 Date 객체가 될 수 있습니다.
-    toISOString()을 쓰면 한국 시간(KST)이 UTC로 변환되면서
-    날짜가 하루 전으로 표시될 수 있으므로 로컬 날짜 값을 직접 사용합니다.
+    Excel 날짜를 로컬 날짜 그대로 표시합니다.
+    toISOString()을 사용하면 한국시간 자정이 UTC 전날로 변환되어
+    날짜가 하루 앞당겨 보일 수 있으므로 사용하지 않습니다.
   */
   if (v instanceof Date && !Number.isNaN(v.getTime())) {
     return [
@@ -147,7 +147,7 @@ function excelDateToText(v) {
     }
   }
 
-  const s = String(v).trim();
+  const s = String(v);
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) return `${m[1]}-${m[2]}-${m[3]}`;
 
@@ -494,10 +494,7 @@ function resolveCoordinate(obj) {
 function updateHeader() {
   const md = currentData.metadata;
 
-  /*
-    기준일은 엑셀의 기준일이 아니라
-    대시보드에 접속한 오늘 날짜를 자동 표시합니다.
-  */
+  // 기준일은 엑셀 값을 사용하지 않고 오늘 날짜를 자동 표시
   const today = new Date();
 
   const todayText = [
@@ -515,14 +512,6 @@ function updateHeader() {
   document.getElementById("summary-title").textContent =
     `${currentConfig.disaster} 현황`;
 
-  /*
-    재해기간 표시 규칙
-    - 시작일·종료일 모두 있음: 재해기간 YYYY-MM-DD ~ YYYY-MM-DD
-    - 시작일만 있음: 재해기간 YYYY-MM-DD
-    - 종료일만 있음: 재해기간 YYYY-MM-DD
-    - 둘 다 없음: 공란
-    - '진행중' 문구는 사용하지 않음
-  */
   const startRaw = md["시작일"];
   const endRaw = md["종료일"];
 
@@ -551,8 +540,7 @@ function updateHeader() {
     periodText = `재해기간 ${end}`;
   }
 
-  document.getElementById("period-text").textContent =
-    periodText;
+  document.getElementById("period-text").textContent = periodText;
 
   document.getElementById("virtual-badge")
     .classList.toggle(
@@ -679,7 +667,7 @@ function buildSummaryCards() {
   if (d === "호우") {
     return [
       { label: "피해·관측지역", value: count, unit: "개 지역" },
-      { label: "최대 누적 강수량", value: max(h("누적 강수량")), unit: "mm", decimals: 1 },
+      { label: "최대 누적 강수량", value: max(h("강수량")), unit: "mm", decimals: 1 },
       { label: "사망자", value: sum(h("사망자")), unit: "명" },
       { label: "부상자", value: sum(h("부상자")), unit: "명" }
     ];
@@ -689,7 +677,7 @@ function buildSummaryCards() {
     return [
       { label: "피해지역", value: count, unit: "개 지역" },
       { label: "최대 순간풍속", value: max(h("최대순간풍속")), unit: "m/s", decimals: 1 },
-      { label: "최대 누적 강수량", value: max(h("누적 강수량")), unit: "mm", decimals: 1 },
+      { label: "최대 누적 강수량", value: sum(h("누적 강수량")), unit: "mm", decimals: 1 },
       { label: "대피인원", value: sum(h("대피인원")), unit: "명" }
     ];
   }
