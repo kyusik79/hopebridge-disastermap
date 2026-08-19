@@ -24,20 +24,37 @@ html,body{
 
 button,select{font:inherit}
 
+
+/* =========================================================
+   상단 헤더
+========================================================= */
+
 .topbar{
   min-height:92px;
   display:grid;
-  grid-template-columns:230px 1fr auto;
+  grid-template-columns:210px 1fr auto;
   align-items:center;
   padding:14px 30px;
   border-bottom:1px solid var(--line);
   background:#fff;
-  gap:24px;
+  gap:0;
 }
 
-.brand{display:flex;align-items:center;gap:12px}
+/* 로고 영역 */
+.brand{
+  height:100%;
+  display:flex;
+  align-items:center;
+  padding-right:22px;
+  border-right:1px solid #d8dbe0;
+}
 
-.brand-symbol{width:54px;height:25px;position:relative}
+/* 현재 사용하지 않지만 기존 코드 호환을 위해 유지 */
+.brand-symbol{
+  width:54px;
+  height:25px;
+  position:relative;
+}
 
 .brand-symbol:before{
   content:"";
@@ -51,15 +68,33 @@ button,select{font:inherit}
   transform:rotate(5deg);
 }
 
-.brand-copy strong{display:block;font-size:17px;font-weight:800}
-.brand-copy span{display:block;margin-top:2px;font-size:10px;color:#555}
+.brand-copy strong{
+  display:block;
+  font-size:17px;
+  font-weight:800;
+}
 
+.brand-copy span{
+  display:block;
+  margin-top:2px;
+  font-size:10px;
+  color:#555;
+}
+
+/* 실제 희망브리지 CI PNG */
+.brand-logo{
+  width:130px;
+  height:auto;
+  display:block;
+}
+
+/* 제목 영역 */
 .title-wrap{
   display:flex;
   align-items:baseline;
   gap:16px;
-  border-left:1px solid #d8dbe0;
-  padding-left:24px;
+  border-left:0;
+  padding-left:22px;
 }
 
 .title-wrap h1{
@@ -69,7 +104,10 @@ button,select{font:inherit}
   font-weight:850;
 }
 
-.title-wrap span{font-size:14px;color:#7d8490}
+.title-wrap span{
+  font-size:14px;
+  color:#7d8490;
+}
 
 .header-tools{
   display:flex;
@@ -104,7 +142,14 @@ button,select{font:inherit}
   white-space:nowrap;
 }
 
-.update-box strong{font-weight:700}
+.update-box strong{
+  font-weight:700;
+}
+
+
+/* =========================================================
+   전체 대시보드
+========================================================= */
 
 .dashboard{
   height:calc(100vh - 92px);
@@ -113,6 +158,11 @@ button,select{font:inherit}
   grid-template-columns:minmax(640px,1.03fr) minmax(720px,.97fr);
 }
 
+
+/* =========================================================
+   지도
+========================================================= */
+
 .map-card{
   position:relative;
   overflow:hidden;
@@ -120,8 +170,16 @@ button,select{font:inherit}
   background:linear-gradient(145deg,#edf6fc 0%,#f8fbfd 76%);
 }
 
-#map-wrap{position:absolute;inset:0}
-#map{width:100%;height:100%;display:block}
+#map-wrap{
+  position:absolute;
+  inset:0;
+}
+
+#map{
+  width:100%;
+  height:100%;
+  display:block;
+}
 
 .map-actions{
   position:absolute;
@@ -133,9 +191,14 @@ button,select{font:inherit}
   align-items:center;
 }
 
-.metric-buttons{display:flex;gap:8px;flex-wrap:wrap}
+.metric-buttons{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
 
-.metric-btn,.map-button{
+.metric-btn,
+.map-button{
   border:1px solid #dde1e7;
   background:#fff;
   color:#3b414b;
@@ -168,7 +231,9 @@ button,select{font:inherit}
   cursor:pointer;
 }
 
-.bubble:hover{fill:var(--red-dark)}
+.bubble:hover{
+  fill:var(--red-dark);
+}
 
 .bubble-value{
   fill:#fff;
@@ -189,6 +254,11 @@ button,select{font:inherit}
   pointer-events:none;
 }
 
+
+/* =========================================================
+   범례
+========================================================= */
+
 .legend{
   position:absolute;
   z-index:20;
@@ -203,13 +273,45 @@ button,select{font:inherit}
   font-size:12px;
 }
 
-.legend h3{font-size:12px;margin:0 0 12px}
-.legend h3 span{font-weight:500}
-.legend div{display:flex;align-items:center;gap:10px;margin:8px 0;color:#555}
-.legend i{display:inline-block;border-radius:50%;background:var(--red)}
-.legend i.lg{width:25px;height:25px}
-.legend i.md{width:17px;height:17px;opacity:.82}
-.legend i.sm{width:9px;height:9px;opacity:.68}
+.legend h3{
+  font-size:12px;
+  margin:0 0 12px;
+}
+
+.legend h3 span{
+  font-weight:500;
+}
+
+.legend div{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:8px 0;
+  color:#555;
+}
+
+.legend i{
+  display:inline-block;
+  border-radius:50%;
+  background:var(--red);
+}
+
+.legend i.lg{
+  width:25px;
+  height:25px;
+}
+
+.legend i.md{
+  width:17px;
+  height:17px;
+  opacity:.82;
+}
+
+.legend i.sm{
+  width:9px;
+  height:9px;
+  opacity:.68;
+}
 
 .legend p{
   border-top:1px solid #eceef1;
@@ -218,6 +320,11 @@ button,select{font:inherit}
   line-height:1.55;
   color:#777;
 }
+
+
+/* =========================================================
+   지도 상태
+========================================================= */
 
 .map-state{
   position:absolute;
@@ -232,7 +339,10 @@ button,select{font:inherit}
   z-index:15;
 }
 
-.map-state.error{text-align:center;line-height:1.65}
+.map-state.error{
+  text-align:center;
+  line-height:1.65;
+}
 
 .spinner{
   width:28px;
@@ -243,8 +353,18 @@ button,select{font:inherit}
   animation:spin .8s linear infinite;
 }
 
-@keyframes spin{to{transform:rotate(360deg)}}
-.hidden{display:none!important}
+@keyframes spin{
+  to{transform:rotate(360deg)}
+}
+
+.hidden{
+  display:none!important;
+}
+
+
+/* =========================================================
+   우측 정보영역
+========================================================= */
 
 .right-card{
   height:100%;
@@ -253,7 +373,9 @@ button,select{font:inherit}
   background:#fff;
 }
 
-.right-card section{margin-bottom:28px}
+.right-card section{
+  margin-bottom:28px;
+}
 
 .section-kicker{
   font-size:12px;
@@ -293,6 +415,11 @@ button,select{font:inherit}
   white-space:nowrap;
 }
 
+
+/* =========================================================
+   상단 요약 KPI
+========================================================= */
+
 .summary-grid{
   display:grid;
   grid-template-columns:repeat(4,1fr);
@@ -308,7 +435,9 @@ button,select{font:inherit}
   background:#fff;
 }
 
-.summary-cell + .summary-cell{border-left:1px solid var(--line)}
+.summary-cell + .summary-cell{
+  border-left:1px solid var(--line);
+}
 
 .summary-cell span{
   display:block;
@@ -342,8 +471,19 @@ button,select{font:inherit}
   color:#525866;
 }
 
-.summary-cell.highlight{background:linear-gradient(120deg,#fff,#fff0ed)}
-.summary-cell.highlight span,.summary-cell.highlight strong{color:var(--red-dark)}
+.summary-cell.highlight{
+  background:linear-gradient(120deg,#fff,#fff0ed);
+}
+
+.summary-cell.highlight span,
+.summary-cell.highlight strong{
+  color:var(--red-dark);
+}
+
+
+/* =========================================================
+   지역별 현황
+========================================================= */
 
 .middle-grid{
   display:grid;
@@ -351,7 +491,9 @@ button,select{font:inherit}
   gap:22px;
 }
 
-.ranking-panel{min-width:0}
+.ranking-panel{
+  min-width:0;
+}
 
 .table-frame{
   border:1px solid var(--line);
@@ -366,9 +508,13 @@ table{
   table-layout:fixed;
 }
 
-thead{background:#f6f7f9;color:#666e79}
+thead{
+  background:#f6f7f9;
+  color:#666e79;
+}
 
-th,td{
+th,
+td{
   padding:10px 7px;
   text-align:center;
   border-bottom:1px solid #eceef1;
@@ -377,12 +523,33 @@ th,td{
   white-space:nowrap;
 }
 
-th:first-child,td:first-child{width:45px}
-th:nth-child(2),td:nth-child(2){text-align:left;width:120px}
-tbody tr{cursor:pointer}
-tbody tr:hover{background:#fff5f3}
-tbody tr:last-child td{border-bottom:0}
-tbody td:last-child{color:var(--red-dark);font-weight:850}
+th:first-child,
+td:first-child{
+  width:45px;
+}
+
+th:nth-child(2),
+td:nth-child(2){
+  text-align:left;
+  width:120px;
+}
+
+tbody tr{
+  cursor:pointer;
+}
+
+tbody tr:hover{
+  background:#fff5f3;
+}
+
+tbody tr:last-child td{
+  border-bottom:0;
+}
+
+tbody td:last-child{
+  color:var(--red-dark);
+  font-weight:850;
+}
 
 .tiny-note{
   font-size:10px;
@@ -390,6 +557,11 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
   margin:8px 0 0;
   line-height:1.55;
 }
+
+
+/* =========================================================
+   지역 상세
+========================================================= */
 
 .detail-panel{
   border-left:1px solid var(--line);
@@ -423,10 +595,25 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
   align-items:center;
 }
 
-.detail-row:last-child{border-bottom:0}
-.detail-row span{font-size:12px;font-weight:700;color:#525866}
-.detail-row strong{font-size:17px;text-align:right}
-.detail-row.primary strong{color:var(--red-dark);font-size:21px}
+.detail-row:last-child{
+  border-bottom:0;
+}
+
+.detail-row span{
+  font-size:12px;
+  font-weight:700;
+  color:#525866;
+}
+
+.detail-row strong{
+  font-size:17px;
+  text-align:right;
+}
+
+.detail-row.primary strong{
+  color:var(--red-dark);
+  font-size:21px;
+}
 
 .clear-btn{
   margin-top:8px;
@@ -437,13 +624,21 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
   cursor:pointer;
 }
 
+
+/* =========================================================
+   현장사진
+========================================================= */
+
 .row-heading{
   display:flex;
   justify-content:space-between;
   align-items:flex-end;
 }
 
-.row-heading > span{font-size:12px;color:#858c96}
+.row-heading > span{
+  font-size:12px;
+  color:#858c96;
+}
 
 .photo-grid{
   display:grid;
@@ -459,7 +654,12 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
   display:block;
 }
 
-.photo-card img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-card img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
 
 .photo-empty{
   min-height:88px;
@@ -474,6 +674,11 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
   font-size:12px;
   color:#898f98;
 }
+
+
+/* =========================================================
+   희망브리지 지원현황
+========================================================= */
 
 .support-section{
   border-top:1px solid var(--line);
@@ -495,7 +700,9 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
   border-bottom:1px solid var(--line);
 }
 
-.support-card:nth-child(4n){border-right:0}
+.support-card:nth-child(4n){
+  border-right:0;
+}
 
 .support-card span{
   display:block;
@@ -527,15 +734,27 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
   font-size:10px;
 }
 
+
+/* =========================================================
+   기본 반응형
+========================================================= */
+
 @media(max-width:1250px){
-  .dashboard{grid-template-columns:1fr;height:auto}
+  .dashboard{
+    grid-template-columns:1fr;
+    height:auto;
+  }
+
   .map-card{
     height:min(620px,76vh);
     min-height:520px;
     border-right:0;
     border-bottom:1px solid var(--line);
   }
-  .right-card{overflow:visible}
+
+  .right-card{
+    overflow:visible;
+  }
 }
 
 @media(max-width:800px){
@@ -545,28 +764,74 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
     padding:15px 18px;
   }
 
-  .title-wrap{border-left:0;padding-left:0}
-  .title-wrap h1{font-size:25px}
-  .header-tools{align-items:flex-start;flex-direction:column}
-  .update-box{text-align:left}
+  .brand{
+    border-right:0;
+    padding-right:0;
+  }
+
+  .title-wrap{
+    border-left:0;
+    padding-left:0;
+  }
+
+  .title-wrap h1{
+    font-size:25px;
+  }
+
+  .header-tools{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .update-box{
+    text-align:left;
+  }
+
   .map-card{
     height:min(560px,72vh);
     min-height:470px;
   }
-  .middle-grid{grid-template-columns:1fr}
-  .detail-panel{border-left:0;padding-left:0}
-  .summary-grid{grid-template-columns:repeat(2,1fr)}
-  .summary-cell:nth-child(3){border-left:0;border-top:1px solid var(--line)}
-  .summary-cell:nth-child(4){border-top:1px solid var(--line)}
-  .support-grid{grid-template-columns:repeat(2,1fr)}
-  .support-card:nth-child(2n){border-right:0}
-  .photo-grid{grid-template-columns:repeat(2,1fr)}
+
+  .middle-grid{
+    grid-template-columns:1fr;
+  }
+
+  .detail-panel{
+    border-left:0;
+    padding-left:0;
+  }
+
+  .summary-grid{
+    grid-template-columns:repeat(2,1fr);
+  }
+
+  .summary-cell:nth-child(3){
+    border-left:0;
+    border-top:1px solid var(--line);
+  }
+
+  .summary-cell:nth-child(4){
+    border-top:1px solid var(--line);
+  }
+
+  .support-grid{
+    grid-template-columns:repeat(2,1fr);
+  }
+
+  .support-card:nth-child(2n){
+    border-right:0;
+  }
+
+  .photo-grid{
+    grid-template-columns:repeat(2,1fr);
+  }
 }
 
 
 /* =========================================
    숨김 업로드 진입점 / 내부 업로드 패널
 ========================================= */
+
 .upload-secret-trigger{
   position:fixed;
   right:7px;
@@ -722,7 +987,10 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
 }
 
 
-/* v6: 지역 선택 연동 가시성 */
+/* =========================================================
+   v6: 지역 선택 연동 가시성
+========================================================= */
+
 .ranking-panel tbody tr{
   transition:background .15s ease, transform .15s ease;
 }
@@ -742,7 +1010,10 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
 }
 
 
-/* v11: 자동확대 시 전국 피해지역 미니지도 */
+/* =========================================================
+   v11: 자동확대 시 전국 피해지역 미니지도
+========================================================= */
+
 .map-overview-inset{
   position:absolute;
   right:18px;
@@ -829,7 +1100,10 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
 }
 
 
-/* v12: 겹침 최소화 + 지역명 최상단 표시 */
+/* =========================================================
+   v12: 겹침 최소화 + 지역명 최상단 표시
+========================================================= */
+
 .bubble-leader{
   stroke:#98a2b3;
   stroke-width:1;
@@ -862,7 +1136,10 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
 }
 
 
-/* v19: 업로드 패널 내 사진 삭제 관리 */
+/* =========================================================
+   v19: 업로드 패널 내 사진 삭제 관리
+========================================================= */
+
 .upload-divider{
   margin:20px 0 14px;
   border-top:1px solid #eaecf0;
@@ -976,7 +1253,10 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
 }
 
 
-/* v21: 현장사진 지역명/설명 오버레이 */
+/* =========================================================
+   v21: 현장사진 지역명/설명 오버레이
+========================================================= */
+
 .photo-card{
   position:relative;
 }
@@ -1015,12 +1295,8 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
 
 /* =========================================================
    v22: 우측 정보영역 가독성 강화
-   - 섹션 소제목 확대
-   - 주요 통계 숫자 확대
-   - TOP5 / 상세 / 구호지원 수치 가독성 강화
 ========================================================= */
 
-/* 재해 현황 / 지역별 현황 / 현장 기록 / 희망브리지 */
 .section-kicker{
   font-size:15px;
   line-height:1.25;
@@ -1029,7 +1305,6 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
   margin-bottom:6px;
 }
 
-/* 우측 주요 제목 */
 .right-card h2{
   font-size:27px;
   line-height:1.22;
@@ -1037,14 +1312,12 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
   margin-bottom:16px;
 }
 
-/* 상단 KPI 라벨 */
 .summary-cell span{
   font-size:14px;
   font-weight:800;
   margin-bottom:10px;
 }
 
-/* 상단 KPI 숫자 */
 .summary-cell strong{
   font-size:38px;
   line-height:1;
@@ -1052,18 +1325,17 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
   letter-spacing:-1.8px;
 }
 
-/* KPI 단위 */
 .summary-cell em{
   font-size:12px;
   font-weight:800;
 }
 
-/* TOP5 표 */
 table{
   font-size:13px;
 }
 
-th,td{
+th,
+td{
   padding:11px 8px;
 }
 
@@ -1072,7 +1344,6 @@ thead{
   font-weight:800;
 }
 
-/* 선택 지역 상세 숫자 */
 .detail-row span{
   font-size:13px;
   font-weight:800;
@@ -1087,20 +1358,17 @@ thead{
   font-size:24px;
 }
 
-/* 현장사진 장수 */
 .row-heading > span{
   font-size:13px;
   font-weight:700;
 }
 
-/* 구호지원 항목명 */
 .support-card span{
   font-size:13px;
   font-weight:800;
   margin-bottom:7px;
 }
 
-/* 구호지원 수치 */
 .support-card strong{
   font-size:32px;
   line-height:1;
@@ -1108,17 +1376,16 @@ thead{
   letter-spacing:-1.2px;
 }
 
-/* 구호지원 단위 */
 .support-card small{
   font-size:11px;
   font-weight:700;
 }
 
-/* 비고 문구도 너무 작지 않게 */
 .tiny-note{
   font-size:11px;
   line-height:1.6;
 }
+
 
 /* 노트북/태블릿 */
 @media(max-width:1250px){
@@ -1138,6 +1405,7 @@ thead{
     font-size:29px;
   }
 }
+
 
 /* 모바일 */
 @media(max-width:800px){
@@ -1380,7 +1648,10 @@ body.photo-lightbox-open{
 }
 
 
-/* v25: 완만한 색상 차등 */
+/* =========================================================
+   v25: 완만한 색상 차등
+========================================================= */
+
 .legend i.lg{
   background:#dc2626;
 }
@@ -1394,7 +1665,10 @@ body.photo-lightbox-open{
 }
 
 
-/* v26: 지역명 충돌 회피용 가독성 보강 */
+/* =========================================================
+   v26: 지역명 충돌 회피용 가독성 보강
+========================================================= */
+
 .map-place-label{
   font-size:13px;
   font-weight:900;
@@ -1453,7 +1727,6 @@ body.photo-lightbox-open{
   text-align:right;
 }
 
-/* 화면 폭이 좁아지면 출처는 자연스럽게 한 번 더 줄바꿈 */
 @media(max-width:1100px){
   .update-box > div:last-child{
     max-width:330px;
@@ -1484,10 +1757,4 @@ body.photo-lightbox-open{
     max-width:100%;
     text-align:left;
   }
-}
-
-.brand-logo {
-  width: 110px;
-  height: auto;
-  display: block;
 }
