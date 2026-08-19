@@ -184,7 +184,11 @@ async function init() {
 
     loadingEl.classList.add("hidden");
 
-    selectDisaster(disasterConfigs[0].disaster);
+    const defaultDisaster =
+      disasterConfigs.find(c => c.disaster === "호우")?.disaster
+      || disasterConfigs[0].disaster;
+
+    selectDisaster(defaultDisaster);
 
     window.addEventListener(
       "resize",
@@ -764,10 +768,19 @@ function drawMap() {
   const maxValue =
     d3.max(usable, r => r.__value) || 1;
 
+  /*
+    전국 단위 자료(폭염 등)는 지역 간 거리가 촘촘하므로 최대 원을 작게,
+    일부 지역 집중형 자료(호우 등)는 최대 원을 조금 크게 표시합니다.
+    값 자체는 여전히 원의 '면적'에 비례합니다.
+  */
+  const isNationwide = usable.length >= 12;
+  const minRadius = isNationwide ? 5 : 7;
+  const maxRadius = isNationwide ? 34 : 44;
+
   const radius = d3
     .scaleSqrt()
     .domain([Math.min(1, maxValue), maxValue])
-    .range([8, 52]);
+    .range([minRadius, maxRadius]);
 
   const points = usable.map(r => {
     const [x, y] = projection(r.__coord);
@@ -806,7 +819,11 @@ function drawMap() {
     .attr("y", 6)
     .style(
       "font-size",
-      d => d.r >= 25 ? "17px" : "10px"
+      d => {
+        const dense = usable.length >= 12;
+        if (dense) return d.r >= 24 ? "14px" : "9px";
+        return d.r >= 25 ? "17px" : "10px";
+      }
     )
     .text(
       d => formatMetricCell(d.__value, activeMetric)
@@ -854,6 +871,18 @@ function selectRegion(record) {
   });
 
   renderPhotos(record);
+
+  /*
+    세로형 화면(노트북/태블릿/모바일)에서는 지도/표 클릭 후
+    상세영역이 화면 아래에 있으므로 자연스럽게 상세영역으로 이동합니다.
+    넓은 PC 화면에서는 스크롤하지 않습니다.
+  */
+  if (window.innerWidth <= 1250) {
+    document.querySelector(".detail-panel")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  }
 }
 
 function clearSelection(showEmpty = true) {
