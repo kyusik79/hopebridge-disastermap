@@ -20,6 +20,8 @@ let autoZoomEnabled = true;
 let autoZoomOutliers = [];
 let autoZoomMainCluster = [];
 let photos = [];
+let currentPhotoGallery = [];
+let currentPhotoIndex = 0;
 
 const fmt = new Intl.NumberFormat("ko-KR");
 
@@ -1130,10 +1132,42 @@ function drawMap() {
   const minRadius = isNationwide ? 8 : 10;
   const maxRadius = isNationwide ? 40 : 48;
 
+  /*
+    v24: 원 크기 편차 강화
+    기존 sqrt 스케일보다 큰 값은 더 크게, 작은 값은 더 작게 보이도록
+    power scale(지수 0.78)을 사용합니다.
+    단, 값의 순서와 상대적 크기 관계는 그대로 유지합니다.
+  */
+  const positiveValues = usable
+    .map(r => r.__value)
+    .filter(v => v !== null && v > 0);
+
+  const minPositive =
+    d3.min(positiveValues) || 1;
+
   const radius = d3
-    .scaleSqrt()
-    .domain([Math.min(1, maxValue), maxValue])
+    .scalePow()
+    .exponent(0.78)
+    .domain([minPositive, maxValue])
     .range([minRadius, maxRadius]);
+
+  /*
+    값이 클수록 더 진한 빨강으로 표시.
+    연한 빨강 → 중간 빨강 → 진한 빨강의 연속 스케일입니다.
+  */
+  const bubbleColor = d3
+    .scaleLinear()
+    .domain([
+      minPositive,
+      minPositive + (maxValue - minPositive) * 0.5,
+      maxValue
+    ])
+    .range([
+      "#fca5a5",
+      "#ef4444",
+      "#b91c1c"
+    ])
+    .clamp(true);
 
   const rawPoints = usable.map(r => {
     const [x, y] = projection(r.__coord);
@@ -1200,7 +1234,8 @@ function drawMap() {
   groups
     .append("circle")
     .attr("class", "bubble")
-    .attr("r", d => d.r);
+    .attr("r", d => d.r)
+    .style("fill", d => bubbleColor(d.__value));
 
   groups
     .filter(d => d.r >= 12)
@@ -1502,6 +1537,231 @@ function samePlace(aValues, bValues) {
   );
 }
 
+
+/* =========================================================
+   v23: 현장사진 라이트박스
+   - 사진 클릭 시 크게 보기
+   - 좌/우 버튼 및 키보드 방향키로 이동
+   - X 버튼 / 배경 클릭 / ESC로 닫기
+========================================================= */
+
+function ensurePhotoLightbox() {
+  let lightbox = document.getElementById("photo-lightbox");
+
+  if (lightbox) return lightbox;
+
+  lightbox = document.createElement("div");
+  lightbox.id = "photo-lightbox";
+  lightbox.className = "photo-lightbox hidden";
+  lightbox.setAttribute("aria-hidden", "true");
+
+  lightbox.innerHTML = `
+    <div class="photo-lightbox-toolbar">
+      <div id="photo-lightbox-counter" class="photo-lightbox-counter"></div>
+      <button
+        id="photo-lightbox-close"
+        class="photo-lightbox-close"
+        type="button"
+        aria-label="사진 닫기"
+      >×</button>
+    </div>
+
+    <button
+      id="photo-lightbox-prev"
+      class="photo-lightbox-nav prev"
+      type="button"
+      aria-label="이전 사진"
+    >‹</button>
+
+    <figure class="photo-lightbox-figure">
+      <img id="photo-lightbox-image" alt="현장사진 크게 보기">
+      <figcaption id="photo-lightbox-caption"></figcaption>
+    </figure>
+
+    <button
+      id="photo-lightbox-next"
+      class="photo-lightbox-nav next"
+      type="button"
+      aria-label="다음 사진"
+    >›</button>
+  `;
+
+  document.body.appendChild(lightbox);
+
+  lightbox
+    .querySelector("#photo-lightbox-close")
+    .addEventListener("click", closePhotoLightbox);
+
+  lightbox
+    .querySelector("#photo-lightbox-prev")
+    .addEventListener("click", event => {
+      event.stopPropagation();
+      showPrevPhoto();
+    });
+
+  lightbox
+    .querySelector("#photo-lightbox-next")
+    .addEventListener("click", event => {
+      event.stopPropagation();
+      showNextPhoto();
+    });
+
+  lightbox.addEventListener("click", event => {
+    if (event.target === lightbox) {
+      closePhotoLightbox();
+    }
+  });
+
+  document.addEventListener("keydown", handlePhotoLightboxKey);
+
+  return lightbox;
+}
+
+function openPhotoLightbox(photoArray, index) {
+  if (!photoArray?.length) return;
+
+  currentPhotoGallery = [...photoArray];
+  currentPhotoIndex = Math.max(
+    0,
+    Math.min(index, currentPhotoGallery.length - 1)
+  );
+
+  const lightbox = ensurePhotoLightbox();
+
+  lightbox.classList.remove("hidden");
+  lightbox.setAttribute("aria-hidden", "false");
+
+  document.body.classList.add("photo-lightbox-open");
+
+  renderPhotoLightbox();
+}
+
+function closePhotoLightbox() {
+  const lightbox =
+    document.getElementById("photo-lightbox");
+
+  if (!lightbox) return;
+
+  lightbox.classList.add("hidden");
+  lightbox.setAttribute("aria-hidden", "true");
+
+  document.body.classList.remove("photo-lightbox-open");
+}
+
+function showPrevPhoto() {
+  if (!currentPhotoGallery.length) return;
+
+  currentPhotoIndex =
+    (
+      currentPhotoIndex - 1 +
+      currentPhotoGallery.length
+    ) % currentPhotoGallery.length;
+
+  renderPhotoLightbox();
+}
+
+function showNextPhoto() {
+  if (!currentPhotoGallery.length) return;
+
+  currentPhotoIndex =
+    (
+      currentPhotoIndex + 1
+    ) % currentPhotoGallery.length;
+
+  renderPhotoLightbox();
+}
+
+function renderPhotoLightbox() {
+  const lightbox =
+    document.getElementById("photo-lightbox");
+
+  if (!lightbox || !currentPhotoGallery.length) return;
+
+  const photo =
+    currentPhotoGallery[currentPhotoIndex];
+
+  const image =
+    lightbox.querySelector("#photo-lightbox-image");
+
+  const caption =
+    lightbox.querySelector("#photo-lightbox-caption");
+
+  const counter =
+    lightbox.querySelector("#photo-lightbox-counter");
+
+  const prev =
+    lightbox.querySelector("#photo-lightbox-prev");
+
+  const next =
+    lightbox.querySelector("#photo-lightbox-next");
+
+  const location =
+    String(photo.sgg || photo.sido || "").trim();
+
+  image.src = photo.file;
+  image.alt =
+    photo.caption ||
+    (location ? `${location} 현장사진` : "현장사진");
+
+  const captionParts = [];
+
+  if (location) {
+    captionParts.push(`<strong>${location}</strong>`);
+  }
+
+  if (photo.caption) {
+    captionParts.push(`<span>${photo.caption}</span>`);
+  }
+
+  if (photo.date) {
+    captionParts.push(`<small>${photo.date}</small>`);
+  }
+
+  caption.innerHTML = captionParts.join("");
+
+  counter.textContent =
+    `${currentPhotoIndex + 1} / ${currentPhotoGallery.length}`;
+
+  const single =
+    currentPhotoGallery.length <= 1;
+
+  prev.classList.toggle("hidden", single);
+  next.classList.toggle("hidden", single);
+}
+
+function handlePhotoLightboxKey(event) {
+  const lightbox =
+    document.getElementById("photo-lightbox");
+
+  if (!lightbox || lightbox.classList.contains("hidden")) {
+    return;
+  }
+
+  if (event.key === "Escape") {
+    closePhotoLightbox();
+  } else if (event.key === "ArrowLeft") {
+    showPrevPhoto();
+  } else if (event.key === "ArrowRight") {
+    showNextPhoto();
+  }
+}
+
+function attachPhotoLightboxClick(anchor, photoArray, index) {
+  anchor.removeAttribute("target");
+  anchor.removeAttribute("rel");
+  anchor.href = "#";
+
+  anchor.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    openPhotoLightbox(
+      photoArray,
+      index
+    );
+  });
+}
+
 function renderPhotos(record) {
   const recordSido =
     String(record["시도"] || record["시도/권역"] || "").trim();
@@ -1561,20 +1821,30 @@ function renderPhotos(record) {
 
   empty.classList.toggle("hidden", arr.length > 0);
 
-  arr.forEach(p => {
+  arr.forEach((p, index) => {
     const a = document.createElement("a");
 
     a.className = "photo-card";
-    a.href = p.file;
-    a.target = "_blank";
-    a.rel = "noopener";
+
+    const location =
+      String(p.sgg || p.sido || "").trim();
 
     a.innerHTML = `
       <img
         src="${p.file}"
-        alt="${p.caption || "현장사진"}"
+        alt="${p.caption || (location ? `${location} 현장사진` : "현장사진")}"
       >
+      <span class="photo-meta">
+        ${location ? `<b>${location}</b>` : ""}
+        ${p.caption ? `<em>${p.caption}</em>` : ""}
+      </span>
     `;
+
+    attachPhotoLightboxClick(
+      a,
+      arr,
+      index
+    );
 
     grid.appendChild(a);
   });
@@ -1607,12 +1877,9 @@ function renderAllPhotos() {
     return;
   }
 
-  arr.forEach(p => {
+  arr.forEach((p, index) => {
     const a = document.createElement("a");
     a.className = "photo-card";
-    a.href = p.file;
-    a.target = "_blank";
-    a.rel = "noopener";
 
     const location =
       String(p.sgg || p.sido || "").trim();
@@ -1627,6 +1894,12 @@ function renderAllPhotos() {
         ${p.caption ? `<em>${p.caption}</em>` : ""}
       </span>
     `;
+
+    attachPhotoLightboxClick(
+      a,
+      arr,
+      index
+    );
 
     grid.appendChild(a);
   });
