@@ -485,11 +485,20 @@ function resolveCoordinate(obj) {
 function updateHeader() {
   const md = currentData.metadata;
 
-  document.getElementById("asof-text").textContent =
-    excelDateToText(md["기준일"]);
+  // 기준일은 엑셀 값을 사용하지 않고 오늘 날짜를 자동 표시
+  const today = new Date();
 
-document.getElementById("data-type-text").textContent =
-  "자료출처 : 행안부「안전관리일일상황」, 희망브리지「구호현황」";
+  const todayText = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0")
+  ].join("-");
+
+  document.getElementById("asof-text").textContent =
+    todayText;
+
+  document.getElementById("data-type-text").textContent =
+    "자료출처 : 행안부「안전관리일일상황」, 희망브리지「구호현황」";
 
   document.getElementById("summary-title").textContent =
     `${currentConfig.disaster} 현황`;
