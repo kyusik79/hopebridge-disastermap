@@ -740,3 +740,123 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
     min-height:210px;
   }
 }
+
+
+/* v11: 자동확대 시 전국 피해지역 미니지도 */
+.map-overview-inset{
+  position:absolute;
+  right:18px;
+  bottom:18px;
+  z-index:22;
+  width:190px;
+  padding:10px 10px 9px;
+  border:1px solid #dfe3e8;
+  border-radius:10px;
+  background:rgba(255,255,255,.96);
+  box-shadow:0 8px 25px rgba(35,50,70,.10);
+}
+
+.inset-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:4px;
+}
+
+.inset-title span{
+  font-size:11px;
+  font-weight:800;
+  color:#344054;
+}
+
+.inset-title button{
+  border:0;
+  background:transparent;
+  padding:0;
+  color:#667085;
+  font-size:10px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+#overview-map{
+  display:block;
+  width:100%;
+  height:170px;
+}
+
+.overview-region{
+  fill:#fff;
+  stroke:#cfd6dd;
+  stroke-width:.5;
+  vector-effect:non-scaling-stroke;
+}
+
+.overview-point{
+  fill:#f97066;
+  stroke:#fff;
+  stroke-width:1;
+}
+
+.overview-point.outlier{
+  fill:#d92d20;
+  stroke:#fff;
+  stroke-width:1.2;
+}
+
+.overview-note{
+  margin-top:3px;
+  font-size:9px;
+  line-height:1.4;
+  color:#667085;
+}
+
+@media(max-width:800px){
+  .map-overview-inset{
+    width:150px;
+    right:10px;
+    bottom:10px;
+  }
+
+  #overview-map{
+    height:135px;
+  }
+
+  .overview-note{
+    display:none;
+  }
+}
+
+
+/* v12: 겹침 최소화 + 지역명 최상단 표시 */
+.bubble-leader{
+  stroke:#98a2b3;
+  stroke-width:1;
+  stroke-dasharray:2 2;
+  opacity:.78;
+  vector-effect:non-scaling-stroke;
+  pointer-events:none;
+}
+
+.bubble-label-layer{
+  pointer-events:none;
+}
+
+.map-place-label{
+  fill:#101828;
+  font-weight:900;
+  paint-order:stroke fill;
+  stroke:#ffffff;
+  stroke-width:5px;
+  stroke-linejoin:round;
+  vector-effect:non-scaling-stroke;
+}
+
+.bubble{
+  fill:rgba(239,63,52,.84);
+}
+
+.bubble-point:hover .bubble{
+  fill:#d92d20;
+}
