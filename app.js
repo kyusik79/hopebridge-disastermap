@@ -635,7 +635,7 @@ function buildSummaryCards() {
     return [
       { label: "피해지역", value: count, unit: "개 지역" },
       { label: "최대 순간풍속", value: max(h("최대순간풍속")), unit: "m/s", decimals: 1 },
-      { label: "누적 강수량", value: sum(h("강수량")), unit: "mm", decimals: 1 },
+      { label: "최대 누적 강수량", value: sum(h("누적 강수량")), unit: "mm", decimals: 1 },
       { label: "대피인원", value: sum(h("대피인원")), unit: "명" }
     ];
   }
