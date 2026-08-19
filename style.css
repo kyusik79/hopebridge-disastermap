@@ -572,18 +572,18 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
   right:7px;
   bottom:7px;
   z-index:80;
-  width:10px;
-  height:10px;
+  width:12px;
+  height:12px;
   padding:0;
   border:0;
   border-radius:50%;
-  background:#cfd4da;
-  opacity:.16;
+  background:#98a2b3;
+  opacity:.22;
   cursor:default;
 }
 
 .upload-secret-trigger:hover{
-  opacity:.28;
+  opacity:.38;
 }
 
 .upload-modal{
