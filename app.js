@@ -16,6 +16,7 @@ let currentData = null;
 let activeMetric = null;
 let width = 900;
 let height = 760;
+let autoZoomEnabled = true;
 let photos = [];
 
 const fmt = new Intl.NumberFormat("ko-KR");
@@ -284,6 +285,10 @@ function selectDisaster(disasterName) {
   renderSupport();
   clearSelection(false);
   renderEmptyPhotos();
+
+  // 재해 변경 시 해당 재해 분포 기준 자동확대를 다시 활성화
+  autoZoomEnabled = true;
+
   resize();
 }
 
@@ -499,6 +504,10 @@ function buildMetricButtons() {
 
       updateLegend();
       updateRanking();
+
+      // 지표 변경 시 새 지표 분포 기준 자동확대를 다시 활성화
+      autoZoomEnabled = true;
+
       drawMap();
     });
 
@@ -734,52 +743,88 @@ function resize() {
 
 function getAutoZoomTransform(points) {
   /*
-    피해지점이 특정 권역에 몰린 경우 해당 권역을 자동 확대합니다.
-    - 전국적으로 퍼져 있으면 전국보기 유지
-    - 2개 이상 지점이 좁은 범위에 모이면 자동 확대
-    - 너무 과도한 확대는 막기 위해 최대 3.2배로 제한
+    v9: 주요 피해권역 중심 자동 확대
+
+    원거리 지점(예: 제주 성산)이 하나 포함되어 있어도
+    경남·부산처럼 다수 지점이 몰린 군집이 있으면
+    그 군집을 중심으로 자동 확대합니다.
   */
-  if (!points || points.length < 2) {
+  if (!points || points.length < 3) {
     return d3.zoomIdentity;
   }
 
-  const xs = points.map(d => d.x);
-  const ys = points.map(d => d.y);
+  // 전국형 자료는 자동 확대하지 않음
+  if (points.length >= 12) {
+    return d3.zoomIdentity;
+  }
+
+  // 기본 전국지도 좌표상에서 가까운 지점끼리 묶는 거리 기준
+  const thresholdPx = Math.max(90, Math.min(width, height) * 0.16);
+
+  const visited = new Set();
+  const clusters = [];
+
+  for (let i = 0; i < points.length; i++) {
+    if (visited.has(i)) continue;
+
+    const queue = [i];
+    const cluster = [];
+    visited.add(i);
+
+    while (queue.length) {
+      const idx = queue.shift();
+      cluster.push(points[idx]);
+
+      for (let j = 0; j < points.length; j++) {
+        if (visited.has(j)) continue;
+
+        const dx = points[idx].x - points[j].x;
+        const dy = points[idx].y - points[j].y;
+        const distance = Math.hypot(dx, dy);
+
+        if (distance <= thresholdPx) {
+          visited.add(j);
+          queue.push(j);
+        }
+      }
+    }
+
+    clusters.push(cluster);
+  }
+
+  clusters.sort((a, b) => b.length - a.length);
+
+  const mainCluster = clusters[0] || [];
+  const minimumClusterSize = Math.max(3, Math.ceil(points.length * 0.5));
+
+  // 과반수에 가까운 집중권역이 없으면 전국보기 유지
+  if (mainCluster.length < minimumClusterSize) {
+    return d3.zoomIdentity;
+  }
+
+  const xs = mainCluster.map(d => d.x);
+  const ys = mainCluster.map(d => d.y);
 
   const minX = Math.min(...xs);
   const maxX = Math.max(...xs);
   const minY = Math.min(...ys);
   const maxY = Math.max(...ys);
 
-  const boxWidth = Math.max(1, maxX - minX);
-  const boxHeight = Math.max(1, maxY - minY);
+  // 원과 지역명까지 잘리지 않도록 여백
+  const pad = 85;
+  const boxWidth = Math.max(90, (maxX - minX) + pad * 2);
+  const boxHeight = Math.max(90, (maxY - minY) + pad * 2);
 
   const centerX = (minX + maxX) / 2;
   const centerY = (minY + maxY) / 2;
 
-  /*
-    화면의 약 58% 폭, 62% 높이 안에 피해지점들이 들어오도록 확대.
-    숫자가 작을수록 더 크게 확대됩니다.
-  */
-  const paddingFactorX = 0.58;
-  const paddingFactorY = 0.62;
-
   let scale = Math.min(
-    width * paddingFactorX / boxWidth,
-    height * paddingFactorY / boxHeight
+    width * 0.74 / boxWidth,
+    height * 0.74 / boxHeight
   );
 
-  /*
-    전국형 데이터는 자동 확대하지 않음.
-    일부지역 집중형만 1.25~3.2배 사이에서 확대.
-  */
-  const isNationwide = points.length >= 12;
-
-  if (isNationwide || scale < 1.25) {
-    return d3.zoomIdentity;
-  }
-
-  scale = Math.max(1.25, Math.min(scale, 3.2));
+  // 확대한 느낌이 분명하도록 최소 배율 설정
+  scale = Math.max(1.6, Math.min(scale, 3.8));
 
   return d3.zoomIdentity
     .translate(
@@ -902,15 +947,23 @@ function drawMap() {
     .text(d => shortLabel(d));
 
   /*
-    호우처럼 특정 권역에 피해지점이 몰리면 자동 확대.
-    전국보기 버튼을 누르면 언제든 원래 전국지도로 복귀합니다.
+    집중권역이 있으면 자동 확대.
+    전국보기 선택 후에는 사용자가 재해/지표를 바꿀 때까지
+    자동확대를 다시 적용하지 않습니다.
   */
-  const autoTransform = getAutoZoomTransform(points);
+  if (autoZoomEnabled) {
+    const autoTransform = getAutoZoomTransform(points);
 
-  svg.call(
-    zoom.transform,
-    autoTransform
-  );
+    svg.call(
+      zoom.transform,
+      autoTransform
+    );
+  } else {
+    svg.call(
+      zoom.transform,
+      d3.zoomIdentity
+    );
+  }
 }
 
 function selectRegion(record) {
@@ -1060,6 +1113,9 @@ function renderEmptyPhotos() {
 
 document.getElementById("reset-view")
   .addEventListener("click", () => {
+    // 전국보기는 명시적으로 자동확대를 끄고 전체지도 유지
+    autoZoomEnabled = false;
+
     svg
       .transition()
       .duration(350)
