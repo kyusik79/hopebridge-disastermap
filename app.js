@@ -494,7 +494,6 @@ function resolveCoordinate(obj) {
 function updateHeader() {
   const md = currentData.metadata;
 
-  // 기준일은 엑셀 값을 사용하지 않고 오늘 날짜를 자동 표시
   const today = new Date();
 
   const todayText = [
@@ -527,20 +526,24 @@ function updateHeader() {
     endRaw !== "" &&
     endRaw !== "-";
 
-  const start = hasStart ? excelDateToText(startRaw) : "";
-  const end = hasEnd ? excelDateToText(endRaw) : "";
+  const start =
+    hasStart ? excelDateToText(startRaw) : "";
+
+  const end =
+    hasEnd ? excelDateToText(endRaw) : "";
 
   let periodText = "";
 
   if (start && end) {
     periodText = `재해기간 ${start} ~ ${end}`;
-  } else if (start) {
-    periodText = `재해기간 ${start}`;
-  } else if (end) {
-    periodText = `재해기간 ${end}`;
+  } else if (start && !end) {
+    periodText = `재해기간 ${start} ~ 진행중`;
+  } else {
+    periodText = "";
   }
 
-  document.getElementById("period-text").textContent = periodText;
+  document.getElementById("period-text").textContent =
+    periodText;
 
   document.getElementById("virtual-badge")
     .classList.toggle(
