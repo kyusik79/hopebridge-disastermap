@@ -1558,10 +1558,16 @@ uploadSubmit.addEventListener("click", async () => {
 
       const optimized = await optimizePhoto(photoFiles[i]);
 
+      /*
+        일부 브라우저(특히 구버전 Edge/Chromium)는 multipart 업로드의
+        filename 파라미터에 한글이 들어가면 ByteString 변환 오류를 낼 수 있습니다.
+        서버는 업로드 후 자체 파일명을 새로 생성하므로, 전송용 파일명은
+        안전하게 영문/숫자만 사용합니다.
+      */
       form.append(
         "photos",
         optimized,
-        `${String(i + 1).padStart(2, "0")}_${safeClientFileName(photoFiles[i].name)}.jpg`
+        `photo_${String(i + 1).padStart(2, "0")}.jpg`
       );
     }
 
