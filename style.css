@@ -974,3 +974,407 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
   font-size:10px;
   text-align:center;
 }
+
+
+/* v21: 현장사진 지역명/설명 오버레이 */
+.photo-card{
+  position:relative;
+}
+
+.photo-meta{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  display:flex;
+  flex-direction:column;
+  gap:1px;
+  padding:20px 8px 7px;
+  background:linear-gradient(to top, rgba(0,0,0,.68), rgba(0,0,0,0));
+  color:#fff;
+  pointer-events:none;
+}
+
+.photo-meta b{
+  font-size:11px;
+  font-weight:850;
+  line-height:1.2;
+}
+
+.photo-meta em{
+  margin-top:2px;
+  font-size:9px;
+  font-style:normal;
+  line-height:1.3;
+  opacity:.94;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+
+/* =========================================================
+   v22: 우측 정보영역 가독성 강화
+   - 섹션 소제목 확대
+   - 주요 통계 숫자 확대
+   - TOP5 / 상세 / 구호지원 수치 가독성 강화
+========================================================= */
+
+/* 재해 현황 / 지역별 현황 / 현장 기록 / 희망브리지 */
+.section-kicker{
+  font-size:15px;
+  line-height:1.25;
+  font-weight:900;
+  letter-spacing:-0.2px;
+  margin-bottom:6px;
+}
+
+/* 우측 주요 제목 */
+.right-card h2{
+  font-size:27px;
+  line-height:1.22;
+  letter-spacing:-1px;
+  margin-bottom:16px;
+}
+
+/* 상단 KPI 라벨 */
+.summary-cell span{
+  font-size:14px;
+  font-weight:800;
+  margin-bottom:10px;
+}
+
+/* 상단 KPI 숫자 */
+.summary-cell strong{
+  font-size:38px;
+  line-height:1;
+  font-weight:900;
+  letter-spacing:-1.8px;
+}
+
+/* KPI 단위 */
+.summary-cell em{
+  font-size:12px;
+  font-weight:800;
+}
+
+/* TOP5 표 */
+table{
+  font-size:13px;
+}
+
+th,td{
+  padding:11px 8px;
+}
+
+thead{
+  font-size:12px;
+  font-weight:800;
+}
+
+/* 선택 지역 상세 숫자 */
+.detail-row span{
+  font-size:13px;
+  font-weight:800;
+}
+
+.detail-row strong{
+  font-size:20px;
+  font-weight:900;
+}
+
+.detail-row.primary strong{
+  font-size:24px;
+}
+
+/* 현장사진 장수 */
+.row-heading > span{
+  font-size:13px;
+  font-weight:700;
+}
+
+/* 구호지원 항목명 */
+.support-card span{
+  font-size:13px;
+  font-weight:800;
+  margin-bottom:7px;
+}
+
+/* 구호지원 수치 */
+.support-card strong{
+  font-size:32px;
+  line-height:1;
+  font-weight:900;
+  letter-spacing:-1.2px;
+}
+
+/* 구호지원 단위 */
+.support-card small{
+  font-size:11px;
+  font-weight:700;
+}
+
+/* 비고 문구도 너무 작지 않게 */
+.tiny-note{
+  font-size:11px;
+  line-height:1.6;
+}
+
+/* 노트북/태블릿 */
+@media(max-width:1250px){
+  .section-kicker{
+    font-size:14px;
+  }
+
+  .right-card h2{
+    font-size:25px;
+  }
+
+  .summary-cell strong{
+    font-size:35px;
+  }
+
+  .support-card strong{
+    font-size:29px;
+  }
+}
+
+/* 모바일 */
+@media(max-width:800px){
+  .section-kicker{
+    font-size:13px;
+  }
+
+  .right-card h2{
+    font-size:23px;
+  }
+
+  .summary-cell strong{
+    font-size:31px;
+  }
+
+  .summary-cell span{
+    font-size:12px;
+  }
+
+  .support-card strong{
+    font-size:26px;
+  }
+
+  table{
+    font-size:12px;
+  }
+}
+
+
+/* =========================================================
+   v23: 현장사진 라이트박스
+========================================================= */
+
+body.photo-lightbox-open{
+  overflow:hidden;
+}
+
+.photo-lightbox{
+  position:fixed;
+  inset:0;
+  z-index:3000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(10,15,24,.92);
+  backdrop-filter:blur(3px);
+}
+
+.photo-lightbox-toolbar{
+  position:absolute;
+  top:18px;
+  left:22px;
+  right:18px;
+  z-index:3;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  pointer-events:none;
+}
+
+.photo-lightbox-counter{
+  padding:7px 11px;
+  border-radius:999px;
+  background:rgba(255,255,255,.12);
+  color:#fff;
+  font-size:12px;
+  font-weight:800;
+  pointer-events:auto;
+}
+
+.photo-lightbox-close{
+  width:42px;
+  height:42px;
+  border:0;
+  border-radius:50%;
+  background:rgba(255,255,255,.13);
+  color:#fff;
+  font-size:30px;
+  line-height:1;
+  cursor:pointer;
+  pointer-events:auto;
+}
+
+.photo-lightbox-close:hover{
+  background:rgba(255,255,255,.22);
+}
+
+.photo-lightbox-figure{
+  width:min(86vw,1400px);
+  height:min(84vh,900px);
+  margin:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+}
+
+.photo-lightbox-figure img{
+  display:block;
+  max-width:100%;
+  max-height:calc(84vh - 80px);
+  object-fit:contain;
+  border-radius:8px;
+  box-shadow:0 16px 60px rgba(0,0,0,.34);
+  user-select:none;
+}
+
+#photo-lightbox-caption{
+  width:100%;
+  max-width:1100px;
+  min-height:42px;
+  display:flex;
+  align-items:baseline;
+  justify-content:center;
+  gap:10px;
+  padding:12px 18px 0;
+  color:#fff;
+  text-align:center;
+}
+
+#photo-lightbox-caption strong{
+  font-size:14px;
+  font-weight:900;
+}
+
+#photo-lightbox-caption span{
+  font-size:13px;
+  opacity:.92;
+}
+
+#photo-lightbox-caption small{
+  font-size:10px;
+  opacity:.62;
+}
+
+.photo-lightbox-nav{
+  position:absolute;
+  top:50%;
+  z-index:3;
+  width:52px;
+  height:70px;
+  transform:translateY(-50%);
+  border:0;
+  border-radius:12px;
+  background:rgba(255,255,255,.10);
+  color:#fff;
+  font-size:48px;
+  line-height:1;
+  cursor:pointer;
+}
+
+.photo-lightbox-nav:hover{
+  background:rgba(255,255,255,.20);
+}
+
+.photo-lightbox-nav.prev{
+  left:20px;
+}
+
+.photo-lightbox-nav.next{
+  right:20px;
+}
+
+@media(max-width:800px){
+  .photo-lightbox-toolbar{
+    top:10px;
+    left:12px;
+    right:10px;
+  }
+
+  .photo-lightbox-close{
+    width:38px;
+    height:38px;
+    font-size:27px;
+  }
+
+  .photo-lightbox-figure{
+    width:94vw;
+    height:88vh;
+  }
+
+  .photo-lightbox-figure img{
+    max-height:calc(88vh - 92px);
+  }
+
+  .photo-lightbox-nav{
+    width:42px;
+    height:58px;
+    font-size:40px;
+    background:rgba(0,0,0,.32);
+  }
+
+  .photo-lightbox-nav.prev{
+    left:7px;
+  }
+
+  .photo-lightbox-nav.next{
+    right:7px;
+  }
+
+  #photo-lightbox-caption{
+    flex-direction:column;
+    align-items:center;
+    gap:3px;
+    padding-top:10px;
+  }
+}
+
+
+/* =========================================================
+   v24: 원 크기·색상 편차 강화
+========================================================= */
+
+.legend i.lg{
+  background:#b91c1c;
+  opacity:1;
+}
+
+.legend i.md{
+  background:#ef4444;
+  opacity:1;
+}
+
+.legend i.sm{
+  background:#fca5a5;
+  opacity:1;
+}
+
+.bubble{
+  transition:
+    fill .16s ease,
+    opacity .16s ease,
+    stroke-width .16s ease;
+}
+
+.bubble-point:hover .bubble{
+  opacity:1;
+  stroke-width:2.4;
+  filter:brightness(.94);
+}
