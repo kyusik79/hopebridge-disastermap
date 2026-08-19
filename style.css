@@ -1392,3 +1392,15 @@ body.photo-lightbox-open{
 .legend i.sm{
   background:#f87171;
 }
+
+
+/* v26: 지역명 충돌 회피용 가독성 보강 */
+.map-place-label{
+  font-size:13px;
+  font-weight:900;
+  letter-spacing:-0.2px;
+  paint-order:stroke fill;
+  stroke:#fff;
+  stroke-width:5px;
+  stroke-linejoin:round;
+}
