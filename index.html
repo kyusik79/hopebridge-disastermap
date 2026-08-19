@@ -1,21 +1,17 @@
+
 <!doctype html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
   <title>재난 및 구호 현장지도</title>
-
   <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
-
   <header class="topbar">
-
     <div class="brand">
       <div class="brand-symbol"></div>
-
       <div class="brand-copy">
         <strong>희망브리지</strong>
         <span>전국재해구호협회</span>
@@ -24,408 +20,138 @@
 
     <div class="title-wrap">
       <h1>재난 및 구호 현장지도</h1>
-      <span>구호현황과 현장 기록</span>
+      <span>재해 현황과 구호 활동을 한눈에</span>
     </div>
 
-    <div class="update-box">
-      <div>
-        업데이트
-        <strong id="asof-text">-</strong>
-      </div>
+    <div class="header-tools">
+      <label class="disaster-select-wrap">
+        <span>재해 선택</span>
+        <select id="disaster-select"></select>
+      </label>
 
-      <div>
-        출처: 행정안전부 상황보고
+      <div class="update-box">
+        <div>기준일 <strong id="asof-text">-</strong></div>
+        <div id="data-type-text">자료구분 -</div>
       </div>
     </div>
-
   </header>
-
 
   <main class="dashboard">
 
-    <!-- 왼쪽 지도 -->
-
     <section class="map-card">
-
       <div class="map-actions">
-
-        <button
-          class="metric-btn active"
-          data-metric="remaining_people"
-        >
-          현재 미귀가
-        </button>
-
-        <button
-          class="metric-btn"
-          data-metric="evacuated_people"
-        >
-          누적 일시대피
-        </button>
-
-        <button
-          id="reset-view"
-          class="map-button"
-        >
-          전국보기
-        </button>
-
+        <div id="metric-buttons" class="metric-buttons"></div>
+        <button id="reset-view" class="map-button">전국보기</button>
       </div>
-
 
       <div id="map-wrap">
+        <svg id="map" aria-label="대한민국 재난 및 구호 현황 지도"></svg>
 
-        <svg
-          id="map"
-          aria-label="대한민국 시군구 재난 및 구호 현황 지도"
-        ></svg>
-
-        <div
-          id="map-loading"
-          class="map-state"
-        >
-
+        <div id="map-loading" class="map-state">
           <div class="spinner"></div>
-
-          <p>
-            전국 시·군·구 지도를 불러오고 있습니다.
-          </p>
-
+          <p>재난 데이터를 불러오고 있습니다.</p>
         </div>
 
-
-        <div
-          id="map-error"
-          class="map-state error hidden"
-        ></div>
-
+        <div id="map-error" class="map-state error hidden"></div>
       </div>
-
 
       <div class="legend">
-
         <h3>
           원 크기
-          <span id="legend-metric">
-            (미귀가 인원)
-          </span>
+          <span id="legend-metric">-</span>
         </h3>
-
-        <div>
-          <i class="lg"></i>
-          <span>상대적으로 큼</span>
-        </div>
-
-        <div>
-          <i class="md"></i>
-          <span>중간</span>
-        </div>
-
-        <div>
-          <i class="sm"></i>
-          <span>작음</span>
-        </div>
-
-        <p>
-          ※ 원의 면적은 선택 지표의 규모에 비례합니다.
-        </p>
-
+        <div><i class="lg"></i><span>상대적으로 큼</span></div>
+        <div><i class="md"></i><span>중간</span></div>
+        <div><i class="sm"></i><span>작음</span></div>
+        <p>※ 원의 면적은 선택 지표의 규모에 비례합니다.</p>
       </div>
-
     </section>
-
-
-    <!-- 오른쪽 정보 패널 -->
 
     <aside class="right-card">
 
-      <!-- 전국 현황 -->
-
       <section class="summary-section">
+        <div class="section-kicker">재해 현황</div>
 
-        <div class="section-kicker">
-          전국 현황
+        <div class="heading-row">
+          <div>
+            <h2 id="summary-title">재해 현황</h2>
+            <p id="period-text" class="period-text"></p>
+          </div>
+
+          <span id="virtual-badge" class="virtual-badge hidden">가상데이터</span>
         </div>
 
-        <h2>
-          수해 구호현황
-        </h2>
-
-
-        <div class="summary-grid">
-
-          <div class="summary-cell">
-
-            <span>
-              피해 시·군·구
-            </span>
-
-            <div>
-              <strong id="sum-regions">
-                -
-              </strong>
-
-              <em>
-                개 지역
-              </em>
-            </div>
-
-          </div>
-
-
-          <div class="summary-cell">
-
-            <span>
-              일시대피
-            </span>
-
-            <div>
-              <strong id="sum-evacuated">
-                -
-              </strong>
-
-              <em>
-                명
-              </em>
-            </div>
-
-          </div>
-
-
-          <div class="summary-cell highlight">
-
-            <span>
-              현재 미귀가
-            </span>
-
-            <div>
-              <strong id="sum-remaining">
-                -
-              </strong>
-
-              <em>
-                명
-              </em>
-            </div>
-
-          </div>
-
-        </div>
-
+        <div id="summary-grid" class="summary-grid"></div>
       </section>
-
-
-      <!-- TOP5 + 선택지역 -->
 
       <section class="middle-grid">
-
         <div class="ranking-panel">
-
-          <div class="section-kicker">
-            지역별 현황
-          </div>
-
-          <h2 id="ranking-title">
-            현재 미귀가 TOP 5
-          </h2>
-
+          <div class="section-kicker">지역별 현황</div>
+          <h2 id="ranking-title">TOP 5</h2>
 
           <div class="table-frame">
-
             <table>
-
               <thead>
-
-                <tr>
-                  <th>순위</th>
-                  <th>지역</th>
-                  <th>일시대피(명)</th>
-                  <th>귀가(명)</th>
-                  <th>미귀가(명)</th>
-                </tr>
-
+                <tr id="ranking-head"></tr>
               </thead>
-
-
-              <tbody id="ranking-body">
-              </tbody>
-
+              <tbody id="ranking-body"></tbody>
             </table>
-
           </div>
 
-
-          <p class="tiny-note">
-            ※ 선택 지표 기준 상위 5개 지역
-          </p>
-
+          <p class="tiny-note">※ 현재 선택한 지도 지표 기준 상위 5개 지역입니다.</p>
         </div>
-
 
         <div class="detail-panel">
+          <div class="section-kicker">선택 지역 상세</div>
+          <h2 id="detail-title">지역을 선택해 주세요</h2>
 
-          <div class="section-kicker">
-            선택 지역 상세
+          <div id="detail-empty" class="detail-empty">
+            지도 원 또는 TOP 5 표를 클릭하면 해당 지역의 세부 현황을 확인할 수 있습니다.
           </div>
 
-          <h2 id="detail-title">
-            지역을 선택해 주세요
-          </h2>
+          <div id="detail-content" class="detail-box hidden"></div>
 
-
-          <div
-            id="detail-empty"
-            class="detail-empty"
-          >
-            지도 원 또는 지역별 현황 표를 클릭하면
-            상세 구호현황을 확인할 수 있습니다.
-          </div>
-
-
-          <div
-            id="detail-content"
-            class="detail-box hidden"
-          >
-
-            <div>
-              <span>
-                일시대피
-              </span>
-
-              <strong id="detail-evacuated">
-                -
-              </strong>
-            </div>
-
-
-            <div>
-              <span>
-                귀가
-              </span>
-
-              <strong id="detail-returned">
-                -
-              </strong>
-            </div>
-
-
-            <div class="red">
-
-              <span>
-                현재 미귀가
-              </span>
-
-              <strong id="detail-remaining">
-                -
-              </strong>
-
-            </div>
-
-
-            <div class="reason">
-
-              <span>
-                피해내용
-              </span>
-
-              <p id="detail-reason">
-                -
-              </p>
-
-            </div>
-
-          </div>
-
-
-          <button
-            id="clear-selection"
-            class="clear-btn hidden"
-          >
-            선택 해제
-          </button>
-
+          <button id="clear-selection" class="clear-btn hidden">선택 해제</button>
         </div>
-
       </section>
-
-
-      <!-- 현장사진 -->
 
       <section class="photos-section">
-
         <div class="row-heading">
-
           <div>
-
-            <div class="section-kicker">
-              현장 기록
-            </div>
-
-            <h2>
-              현장 사진
-            </h2>
-
+            <div class="section-kicker">현장 기록</div>
+            <h2>현장 사진</h2>
           </div>
-
-          <span id="photos-count">
-            0장
-          </span>
-
+          <span id="photos-count">0장</span>
         </div>
 
+        <div id="photo-grid" class="photo-grid"></div>
 
-        <div
-          id="photo-grid"
-          class="photo-grid"
-        ></div>
-
-
-        <div
-          id="photo-empty"
-          class="photo-empty"
-        >
-          선택한 지역의 현장사진이 등록되면
-          이곳에 표시됩니다.
+        <div id="photo-empty" class="photo-empty">
+          현장사진이 등록되면 이곳에 표시됩니다.
         </div>
-
       </section>
 
-
-      <!-- 희망브리지 구호지원 -->
-
       <section class="support-section">
+        <div class="section-kicker">희망브리지</div>
+        <h2>구호지원 현황</h2>
 
-        <div class="section-kicker">
-          희망브리지
-        </div>
-
-        <h2>
-          구호지원 현황
-        </h2>
-
-
-        <div
-          id="support-grid"
-          class="support-grid"
-        ></div>
-
+        <div id="support-grid" class="support-grid"></div>
 
         <p class="tiny-note">
-          ※ 지역별 배분량이 아닌 현장 반입·지원 총량입니다.
+          ※ 해당 재해 시트의 구호현황을 표시합니다. 지역별 배분량이 아닌 전체 지원 총량입니다.
         </p>
+      </section>
 
+      <section class="source-note">
+        <strong>데이터 원본</strong>
+        <span>data/disaster_map_data.xlsx</span>
       </section>
 
     </aside>
-
   </main>
 
-
-  <script
-    src="https://cdn.jsdelivr.net/npm/d3@7"
-  ></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="app.js"></script>
-
 </body>
 </html>
