@@ -4,7 +4,7 @@ const mapWrap = document.getElementById("map-wrap");
 const loadingEl = document.getElementById("map-loading");
 const errorEl = document.getElementById("map-error");
 
-const DATA_FILE = "data/disaster_map_data.xlsx";
+const DATA_FILE = "data/재난현장지도_표준화_데이터.xlsx";
 const MAP_URL =
   "https://cdn.jsdelivr.net/gh/southkorea/southkorea-maps@master/gadm/json/skorea-municipalities-geo.json";
 
@@ -127,10 +127,6 @@ function numberValue(v) {
 function excelDateToText(v) {
   if (v === null || v === undefined || v === "" || v === "-") return "-";
 
-  /*
-    Excel 날짜를 JavaScript UTC 문자열로 변환하지 않습니다.
-    UTC 변환 시 한국시간 기준 날짜가 하루 전으로 표시될 수 있기 때문입니다.
-  */
   if (v instanceof Date && !Number.isNaN(v.getTime())) {
     return [
       v.getFullYear(),
@@ -493,10 +489,6 @@ function resolveCoordinate(obj) {
 function updateHeader() {
   const md = currentData.metadata;
 
-  /*
-    화면의 기준일은 엑셀의 기준일이 아니라
-    대시보드에 접속한 오늘 날짜를 자동 표시합니다.
-  */
   const today = new Date();
 
   const todayText = [
@@ -514,12 +506,6 @@ function updateHeader() {
   document.getElementById("summary-title").textContent =
     `${currentConfig.disaster} 현황`;
 
-  /*
-    재해기간 표시 규칙
-    - 시작일 + 종료일 있음 : 재해기간 시작일 ~ 종료일
-    - 시작일 있음 + 종료일 없음 : 재해기간 시작일 ~ 진행중
-    - 시작일 없음 : 공란
-  */
   const startRaw = md["시작일"];
   const endRaw = md["종료일"];
 
@@ -2239,7 +2225,7 @@ uploadSubmit.addEventListener("click", async () => {
     form.append("caption", caption);
 
     if (excelFile) {
-      form.append("excel", excelFile, "disaster_map_data.xlsx");
+      form.append("excel", excelFile, "재난현장지도_표준화_데이터.xlsx");
     }
 
     for (let i = 0; i < photoFiles.length; i++) {
