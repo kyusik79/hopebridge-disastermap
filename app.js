@@ -1318,11 +1318,13 @@ function clearSelection(showEmpty = true) {
   document.getElementById("detail-content").innerHTML = "";
   document.getElementById("clear-selection").classList.add("hidden");
 
-  if (showEmpty) {
-    document.getElementById("detail-empty").classList.remove("hidden");
-  } else {
-    document.getElementById("detail-empty").classList.remove("hidden");
-  }
+  document.getElementById("detail-empty").classList.remove("hidden");
+
+  /*
+    지역 선택이 해제된 상태에서는 현재 재해에 등록된
+    모든 현장사진을 보여줍니다.
+  */
+  renderAllPhotos();
 }
 
 function renderSupport() {
@@ -1353,23 +1355,194 @@ function renderSupport() {
   });
 }
 
+
+/* =========================================================
+   지역명 / 지점명 자동 정규화
+   예:
+   거제 = 거제시 = 경남 거제 = 경상남도 거제시
+   가덕도 = 부산 가덕도 = 부산광역시 가덕도
+   성산 = 제주 성산 = 서귀포 성산 = 제주특별자치도 서귀포시 성산
+========================================================= */
+
+const REGION_ALIASES = {
+  "서울특별시": "서울",
+  "서울시": "서울",
+  "부산광역시": "부산",
+  "부산시": "부산",
+  "대구광역시": "대구",
+  "대구시": "대구",
+  "인천광역시": "인천",
+  "인천시": "인천",
+  "광주광역시": "광주",
+  "광주시": "광주",
+  "대전광역시": "대전",
+  "대전시": "대전",
+  "울산광역시": "울산",
+  "울산시": "울산",
+  "세종특별자치시": "세종",
+  "세종시": "세종",
+  "경기도": "경기",
+  "강원특별자치도": "강원",
+  "강원도": "강원",
+  "충청북도": "충북",
+  "충청남도": "충남",
+  "전북특별자치도": "전북",
+  "전라북도": "전북",
+  "전라남도": "전남",
+  "경상북도": "경북",
+  "경상남도": "경남",
+  "제주특별자치도": "제주",
+  "제주도": "제주"
+};
+
+function normalizePlaceText(value) {
+  let s = String(value || "")
+    .trim()
+    .replace(/[(){}\[\],._\-\/\\]+/g, " ")
+    .replace(/\s+/g, " ");
+
+  Object.entries(REGION_ALIASES)
+    .sort((a, b) => b[0].length - a[0].length)
+    .forEach(([from, to]) => {
+      s = s.replaceAll(from, to);
+    });
+
+  /*
+    시/군/구/읍/면/동/리 접미사는 입력 편의를 위해 제거합니다.
+    예: 거제시 → 거제, 사하구 → 사하
+    단, '가덕도', '성산' 같은 일반 지점명은 그대로 유지됩니다.
+  */
+  s = s
+    .split(" ")
+    .filter(Boolean)
+    .map(token => token.replace(/(특별자치시|특별자치도|광역시)$/g, ""))
+    .map(token => token.replace(/(시|군|구|읍|면|동|리)$/g, ""))
+    .filter(Boolean)
+    .join(" ");
+
+  return s
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function compactPlaceText(value) {
+  return normalizePlaceText(value).replace(/\s+/g, "");
+}
+
+function placeVariants(...values) {
+  const raw = values
+    .flat()
+    .map(v => String(v || "").trim())
+    .filter(Boolean);
+
+  const set = new Set();
+
+  raw.forEach(v => {
+    const normalized = normalizePlaceText(v);
+    const compact = compactPlaceText(v);
+
+    if (normalized) set.add(normalized);
+    if (compact) set.add(compact);
+
+    /*
+      복합 입력은 마지막 토큰도 별도 후보로 둡니다.
+      예: "경남 거제" → "거제"
+          "제주 서귀포 성산" → "성산"
+    */
+    const tokens = normalized.split(" ").filter(Boolean);
+
+    if (tokens.length) {
+      set.add(tokens[tokens.length - 1]);
+    }
+
+    if (tokens.length >= 2) {
+      set.add(tokens.slice(-2).join(" "));
+      set.add(tokens.slice(-2).join(""));
+    }
+  });
+
+  return [...set].filter(Boolean);
+}
+
+function samePlace(aValues, bValues) {
+  const a = placeVariants(aValues);
+  const b = placeVariants(bValues);
+
+  if (!a.length || !b.length) return false;
+
+  const bSet = new Set(b);
+
+  // 1순위: 정규화 후 정확히 일치
+  if (a.some(v => bSet.has(v))) {
+    return true;
+  }
+
+  /*
+    2순위: 복합 지역명과 단일 지점명 비교
+    예: "부산 가덕도" ↔ "가덕도"
+        "제주 서귀포 성산" ↔ "성산"
+    너무 짧은 1글자 명칭은 오인식을 막기 위해 제외합니다.
+  */
+  return a.some(x =>
+    b.some(y => {
+      const xx = x.replace(/\s+/g, "");
+      const yy = y.replace(/\s+/g, "");
+
+      if (xx.length < 2 || yy.length < 2) return false;
+
+      return xx.endsWith(yy) || yy.endsWith(xx);
+    })
+  );
+}
+
 function renderPhotos(record) {
-  const keys = [
-    String(record["지점명"] || "").trim(),
-    String(record["시군구"] || "").trim(),
-    String(record["시도"] || record["시도/권역"] || "").trim()
+  const recordSido =
+    String(record["시도"] || record["시도/권역"] || "").trim();
+
+  const recordSgg =
+    String(record["시군구"] || "").trim();
+
+  const recordPoint =
+    String(record["지점명"] || "").trim();
+
+  const recordCandidates = [
+    recordPoint,
+    recordSgg,
+    recordSido,
+    recordSido && recordSgg ? `${recordSido} ${recordSgg}` : "",
+    recordSido && recordPoint ? `${recordSido} ${recordPoint}` : "",
+    recordSgg && recordPoint ? `${recordSgg} ${recordPoint}` : "",
+    recordSido && recordSgg && recordPoint
+      ? `${recordSido} ${recordSgg} ${recordPoint}`
+      : ""
   ].filter(Boolean);
 
   const arr = photos.filter(p => {
     const pDisaster = String(p.disaster || "").trim();
-    const pSido = String(p.sido || "").trim();
-    const pSgg = String(p.sgg || "").trim();
 
     const disasterMatches =
       !pDisaster || pDisaster === currentConfig.disaster;
 
-    return disasterMatches &&
-      keys.some(k => k === pSgg || k === pSido);
+    if (!disasterMatches) return false;
+
+    /*
+      사진 업로드 시 입력한 '사진 지역명'은 photos.csv의 sgg에 저장됩니다.
+      아래 비교는 행정구역뿐 아니라 지점명까지 자동 인식합니다.
+    */
+    const photoCandidates = [
+      p.sgg,
+      p.sido,
+      p.location,
+      p.point,
+      p.site,
+      p.place
+    ].filter(Boolean);
+
+    return samePlace(
+      recordCandidates,
+      photoCandidates
+    );
   });
 
   const grid = document.getElementById("photo-grid");
@@ -1401,10 +1574,64 @@ function renderPhotos(record) {
   });
 }
 
+function renderAllPhotos() {
+  const grid = document.getElementById("photo-grid");
+  const empty = document.getElementById("photo-empty");
+
+  const arr = photos.filter(p => {
+    const pDisaster = String(p.disaster || "").trim();
+
+    /*
+      새 업로드 사진은 disaster 값으로 현재 재해를 정확히 구분합니다.
+      기존 사진처럼 disaster 값이 비어 있는 자료는 호환을 위해 함께 표시합니다.
+    */
+    return !pDisaster || pDisaster === currentConfig.disaster;
+  });
+
+  document.getElementById("photos-count").textContent =
+    `${arr.length}장`;
+
+  grid.innerHTML = "";
+
+  empty.classList.toggle("hidden", arr.length > 0);
+
+  if (!arr.length) {
+    empty.textContent =
+      "현재 재해에 등록된 현장사진이 없습니다.";
+    return;
+  }
+
+  arr.forEach(p => {
+    const a = document.createElement("a");
+    a.className = "photo-card";
+    a.href = p.file;
+    a.target = "_blank";
+    a.rel = "noopener";
+
+    const location =
+      String(p.sgg || p.sido || "").trim();
+
+    a.innerHTML = `
+      <img
+        src="${p.file}"
+        alt="${p.caption || (location ? `${location} 현장사진` : "현장사진")}"
+      >
+      <span class="photo-meta">
+        ${location ? `<b>${location}</b>` : ""}
+        ${p.caption ? `<em>${p.caption}</em>` : ""}
+      </span>
+    `;
+
+    grid.appendChild(a);
+  });
+}
+
+/*
+  기존 호출부 호환:
+  재해 변경 직후에도 '빈 화면'이 아니라 현재 재해 전체사진을 표시합니다.
+*/
 function renderEmptyPhotos() {
-  document.getElementById("photo-grid").innerHTML = "";
-  document.getElementById("photos-count").textContent = "0장";
-  document.getElementById("photo-empty").classList.remove("hidden");
+  renderAllPhotos();
 }
 
 document.getElementById("reset-view")
