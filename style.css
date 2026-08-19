@@ -529,7 +529,12 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
 
 @media(max-width:1250px){
   .dashboard{grid-template-columns:1fr;height:auto}
-  .map-card{height:760px;border-right:0;border-bottom:1px solid var(--line)}
+  .map-card{
+    height:min(620px,76vh);
+    min-height:520px;
+    border-right:0;
+    border-bottom:1px solid var(--line);
+  }
   .right-card{overflow:visible}
 }
 
@@ -544,7 +549,10 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
   .title-wrap h1{font-size:25px}
   .header-tools{align-items:flex-start;flex-direction:column}
   .update-box{text-align:left}
-  .map-card{height:620px}
+  .map-card{
+    height:min(560px,72vh);
+    min-height:470px;
+  }
   .middle-grid{grid-template-columns:1fr}
   .detail-panel{border-left:0;padding-left:0}
   .summary-grid{grid-template-columns:repeat(2,1fr)}
@@ -710,5 +718,25 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
   .upload-dialog{
     width:100%;
     max-height:88vh;
+  }
+}
+
+
+/* v6: 지역 선택 연동 가시성 */
+.ranking-panel tbody tr{
+  transition:background .15s ease, transform .15s ease;
+}
+
+.ranking-panel tbody tr:hover{
+  background:#fff2ef;
+}
+
+.detail-panel{
+  scroll-margin-top:18px;
+}
+
+@media(min-width:1251px){
+  .detail-panel{
+    min-height:210px;
   }
 }
