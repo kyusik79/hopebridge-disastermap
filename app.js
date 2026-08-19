@@ -731,6 +731,64 @@ function resize() {
   drawMap();
 }
 
+
+function getAutoZoomTransform(points) {
+  /*
+    피해지점이 특정 권역에 몰린 경우 해당 권역을 자동 확대합니다.
+    - 전국적으로 퍼져 있으면 전국보기 유지
+    - 2개 이상 지점이 좁은 범위에 모이면 자동 확대
+    - 너무 과도한 확대는 막기 위해 최대 3.2배로 제한
+  */
+  if (!points || points.length < 2) {
+    return d3.zoomIdentity;
+  }
+
+  const xs = points.map(d => d.x);
+  const ys = points.map(d => d.y);
+
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+
+  const boxWidth = Math.max(1, maxX - minX);
+  const boxHeight = Math.max(1, maxY - minY);
+
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+
+  /*
+    화면의 약 58% 폭, 62% 높이 안에 피해지점들이 들어오도록 확대.
+    숫자가 작을수록 더 크게 확대됩니다.
+  */
+  const paddingFactorX = 0.58;
+  const paddingFactorY = 0.62;
+
+  let scale = Math.min(
+    width * paddingFactorX / boxWidth,
+    height * paddingFactorY / boxHeight
+  );
+
+  /*
+    전국형 데이터는 자동 확대하지 않음.
+    일부지역 집중형만 1.25~3.2배 사이에서 확대.
+  */
+  const isNationwide = points.length >= 12;
+
+  if (isNationwide || scale < 1.25) {
+    return d3.zoomIdentity;
+  }
+
+  scale = Math.max(1.25, Math.min(scale, 3.2));
+
+  return d3.zoomIdentity
+    .translate(
+      width / 2 - scale * centerX,
+      height / 2 - scale * centerY
+    )
+    .scale(scale);
+}
+
 function drawMap() {
   svg.selectAll("*").remove();
 
@@ -842,6 +900,17 @@ function drawMap() {
     .attr("x", d => d.r + 8)
     .attr("y", 4)
     .text(d => shortLabel(d));
+
+  /*
+    호우처럼 특정 권역에 피해지점이 몰리면 자동 확대.
+    전국보기 버튼을 누르면 언제든 원래 전국지도로 복귀합니다.
+  */
+  const autoTransform = getAutoZoomTransform(points);
+
+  svg.call(
+    zoom.transform,
+    autoTransform
+  );
 }
 
 function selectRegion(record) {
