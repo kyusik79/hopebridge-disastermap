@@ -4,1446 +4,975 @@ const mapWrap = document.getElementById("map-wrap");
 const loadingEl = document.getElementById("map-loading");
 const errorEl = document.getElementById("map-error");
 
-let disaster = [];
-let support = [];
-let photos = [];
-let boundaries = null;
-let activeMetric = "remaining_people";
-let width = 900;
-let height = 760;
-
-const fmt = new Intl.NumberFormat("ko-KR");
-
-const metricNames = {
-  remaining_people: "현재 미귀가",
-  evacuated_people: "누적 일시대피"
-};
-
+const DATA_FILE = "data/disaster_map_data.xlsx";
 const MAP_URL =
   "https://cdn.jsdelivr.net/gh/southkorea/southkorea-maps@master/gadm/json/skorea-municipalities-geo.json";
 
+let workbook = null;
+let boundaries = null;
+let disasterConfigs = [];
+let currentConfig = null;
+let currentData = null;
+let activeMetric = null;
+let width = 900;
+let height = 760;
+let photos = [];
 
-/* ==============================
-   시군구 대표좌표
-============================== */
+const fmt = new Intl.NumberFormat("ko-KR");
 
-const regionPoints = {
-
-  "26170": [129.0474, 35.1293], // 부산 동구
-
-  "26200": [129.0679, 35.0912], // 부산 영도구
-
-  "26380": [128.9747, 35.1046], // 부산 사하구
-
-  "26440": [128.9805, 35.2122], // 부산 강서구
-
-
-  "48220": [128.4330, 34.8544], // 통영시
-
-  "48240": [128.0642, 35.0038], // 사천시
-
-  "48310": [128.6211, 34.8806], // 거제시
-
-  "48840": [127.8925, 34.8375], // 남해군
-
-
-  "50130": [126.5601, 33.2541]  // 서귀포시
-
-};
-
-
-/* ==============================
-   지역명 겹침 방지 위치
-============================== */
-
-const labelOffsets = {
-
-  "26170": [16, -12],   // 동구
-
-  "26200": [18, 14],    // 영도구
-
-  "26380": [20, 18],    // 사하구
-
-  "26440": [18, -18],   // 강서구
-
-
-  "48220": [18, -10],   // 통영시
-
-  "48240": [-52, -12],  // 사천시
-
-  "48310": [20, 24],    // 거제시
-
-  "48840": [-48, 20],   // 남해군
-
-
-  "50130": [18, 8]      // 서귀포시
-
-};
-
-
-/* ==============================
-   지도 확대 / 이동
-============================== */
-
-const zoom = d3
-  .zoom()
+const zoom = d3.zoom()
   .scaleExtent([1, 8])
   .on("zoom", event => {
-
-    svg
-      .select(".map-root")
-      .attr(
-        "transform",
-        event.transform
-      );
-
+    svg.select(".map-root").attr("transform", event.transform);
   });
-
 
 svg.call(zoom);
 
+/* -------------------------------------------------
+   지도 좌표 사전
+   - 폭염: 시도 대표좌표
+   - 호우/가상데이터: 시군구·지점 대표좌표
+------------------------------------------------- */
 
-/* ==============================
-   숫자 처리
-============================== */
+const LOCATION_POINTS = {
+  "서울": [126.9780, 37.5665],
+  "부산": [129.0756, 35.1796],
+  "대구": [128.6014, 35.8714],
+  "인천": [126.7052, 37.4563],
+  "광주": [126.8526, 35.1595],
+  "대전": [127.3845, 36.3504],
+  "울산": [129.3114, 35.5384],
+  "세종": [127.2890, 36.4800],
+  "경기": [127.0095, 37.4138],
+  "강원": [128.3115, 37.8228],
+  "충북": [127.7298, 36.6357],
+  "충남": [126.8000, 36.5184],
+  "전북": [127.1530, 35.7175],
+  "전남": [126.9910, 34.8679],
+  "경북": [128.8889, 36.4919],
+  "경남": [128.2132, 35.4606],
+  "제주": [126.5312, 33.4996],
+  "전남광주": [126.9250, 35.0800],
 
-function numberValue(value) {
+  "경남 거제": [128.6211, 34.8806],
+  "경남 거제시": [128.6211, 34.8806],
+  "경남 통영": [128.4330, 34.8544],
+  "경남 통영시": [128.4330, 34.8544],
+  "경남 사천": [128.0642, 35.0038],
+  "경남 사천시": [128.0642, 35.0038],
+  "경남 고성": [128.3225, 34.9731],
+  "경남 산청군": [127.8732, 35.4154],
+  "경남 양산시": [129.0372, 35.3350],
 
-  return (
-    Number(
-      String(value ?? "")
-        .replaceAll(",", "")
-        .trim()
-    ) || 0
-  );
+  "부산 가덕도": [128.8299, 35.0502],
+  "부산 기장군": [129.2223, 35.2446],
+  "부산 금정구": [129.0921, 35.2430],
 
+  "제주 성산": [126.9100, 33.4500],
+  "제주 서귀포시": [126.5601, 33.2541],
+
+  "울산 울주군": [129.2420, 35.5223],
+  "울산 북구": [129.3612, 35.5827],
+
+  "전남 여수시": [127.6622, 34.7604],
+  "전남 순천시": [127.4872, 34.9506],
+
+  "경북 의성군": [128.6970, 36.3527],
+  "경북 봉화군": [128.7327, 36.8930],
+  "경북 경주시": [129.2247, 35.8562],
+
+  "강원 삼척시": [129.1651, 37.4499],
+  "강원 평창군": [128.3900, 37.3707],
+
+  "충북 영동군": [127.7834, 36.1750],
+  "충북 제천시": [128.1909, 37.1326],
+
+  "전북 무주군": [127.6608, 36.0070],
+
+  "경기 포천시": [127.2003, 37.8949],
+
+  "대구 동구": [128.6356, 35.8868]
+};
+
+function numberValue(v) {
+  if (v === null || v === undefined || v === "" || v === "-") return null;
+  const n = Number(String(v).replaceAll(",", "").trim());
+  return Number.isFinite(n) ? n : null;
 }
 
+function excelDateToText(v) {
+  if (v === null || v === undefined || v === "" || v === "-") return "-";
 
-/* ==============================
-   CSV 로드
-============================== */
-
-async function loadCsv(path) {
-
-  const response =
-    await fetch(
-      path,
-      {
-        cache: "no-store"
-      }
-    );
-
-
-  if (!response.ok) {
-
-    throw new Error(
-      `${path} 로드 실패 (${response.status})`
-    );
-
+  if (v instanceof Date && !Number.isNaN(v.getTime())) {
+    return v.toISOString().slice(0, 10);
   }
 
-
-  return d3.csvParse(
-    await response.text()
-  );
-
-}
-
-
-/* ==============================
-   지도 데이터 로드
-============================== */
-
-async function loadJson(path) {
-
-  const response =
-    await fetch(
-      path,
-      {
-        cache: "no-store"
-      }
-    );
-
-
-  if (!response.ok) {
-
-    throw new Error(
-      `지도 데이터 로드 실패 (${response.status})`
-    );
-
+  if (typeof v === "number") {
+    const p = XLSX.SSF.parse_date_code(v);
+    if (p) {
+      return `${p.y}-${String(p.m).padStart(2, "0")}-${String(p.d).padStart(2, "0")}`;
+    }
   }
 
+  const s = String(v);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
 
-  return await response.json();
-
+  return s;
 }
 
+function cleanKey(s) {
+  return String(s ?? "")
+    .replace(/\s+/g, "")
+    .replace(/\(.*?\)/g, "")
+    .trim();
+}
 
-/* ==============================
-   초기화
-============================== */
+function findMatchingHeader(headers, metricName) {
+  const target = cleanKey(metricName);
+
+  return headers.find(h => {
+    const key = cleanKey(h);
+    return key === target || key.startsWith(target) || target.startsWith(key);
+  }) || null;
+}
+
+async function fetchArrayBuffer(path) {
+  const r = await fetch(path, { cache: "no-store" });
+  if (!r.ok) throw new Error(`${path} 로드 실패 (${r.status})`);
+  return await r.arrayBuffer();
+}
+
+async function fetchJson(path) {
+  const r = await fetch(path, { cache: "no-store" });
+  if (!r.ok) throw new Error(`지도 데이터 로드 실패 (${r.status})`);
+  return await r.json();
+}
+
+async function tryLoadPhotos() {
+  try {
+    const r = await fetch("data/photos.csv", { cache: "no-store" });
+    if (!r.ok) return [];
+    return d3.csvParse(await r.text()).filter(d => String(d.file || "").trim());
+  } catch {
+    return [];
+  }
+}
 
 async function init() {
-
   try {
-
-    [
-      disaster,
-      support,
-      photos,
-      boundaries
-
-    ] = await Promise.all([
-
-      loadCsv(
-        "data/disaster.csv"
-      ),
-
-      loadCsv(
-        "data/support.csv"
-      ),
-
-      loadCsv(
-        "data/photos.csv"
-      ),
-
-      loadJson(
-        MAP_URL
-      )
-
+    const [xlsxBuffer, mapJson, photoRows] = await Promise.all([
+      fetchArrayBuffer(DATA_FILE),
+      fetchJson(MAP_URL),
+      tryLoadPhotos()
     ]);
 
+    workbook = XLSX.read(xlsxBuffer, {
+      type: "array",
+      cellDates: true
+    });
 
-    /* 피해현황 숫자형 변환 */
+    boundaries = mapJson;
+    photos = photoRows;
 
-    disaster =
-      disaster.map(
-        d => ({
+    disasterConfigs = parseConfigSheet();
+    buildDisasterSelect();
 
-          ...d,
+    if (!disasterConfigs.length) {
+      throw new Error("01_재해설정 시트에서 재해 설정을 찾지 못했습니다.");
+    }
 
-          sgg_code:
-            String(
-              d.sgg_code ||
-              ""
-            ).trim(),
+    loadingEl.classList.add("hidden");
 
-          evacuated_people:
-            numberValue(
-              d.evacuated_people
-            ),
-
-          returned_people:
-            numberValue(
-              d.returned_people
-            ),
-
-          remaining_people:
-            numberValue(
-              d.remaining_people
-            ),
-
-          evacuated_households:
-            numberValue(
-              d.evacuated_households
-            ),
-
-          returned_households:
-            numberValue(
-              d.returned_households
-            ),
-
-          remaining_households:
-            numberValue(
-              d.remaining_households
-            )
-
-        })
-      );
-
-
-    /* 구호지원 숫자형 변환 */
-
-    support =
-      support.map(
-        d => ({
-
-          ...d,
-
-          quantity:
-            numberValue(
-              d.quantity
-            )
-
-        })
-      );
-
-
-    /* 실제 등록된 사진만 사용 */
-
-    photos =
-      photos.filter(
-        d =>
-          String(
-            d.file ||
-            ""
-          ).trim()
-      );
-
-
-    updateHeader();
-
-    updateSummary();
-
-    updateRanking();
-
-    renderSupport();
-
-    renderEmptyPhotos();
-
-
-    loadingEl
-      .classList
-      .add(
-        "hidden"
-      );
-
-
-    resize();
-
+    selectDisaster(disasterConfigs[0].disaster);
 
     window.addEventListener(
       "resize",
-      debounce(
-        resize,
-        120
-      )
+      debounce(() => {
+        if (currentData) {
+          resize();
+        }
+      }, 120)
     );
 
-  }
-
-
-  catch (error) {
-
+  } catch (error) {
     console.error(error);
-
-
-    loadingEl
-      .classList
-      .add(
-        "hidden"
-      );
-
-
-    errorEl
-      .classList
-      .remove(
-        "hidden"
-      );
-
-
+    loadingEl.classList.add("hidden");
+    errorEl.classList.remove("hidden");
     errorEl.innerHTML = `
-
-      <strong>
-        데이터를 불러오지 못했습니다.
-      </strong>
-
-      <div
-        style="
-          margin-top:10px;
-        "
-      >
-        ${error.message}
+      <strong>데이터를 불러오지 못했습니다.</strong>
+      <div style="margin-top:10px">${error.message}</div>
+      <div style="margin-top:8px;font-size:12px">
+        data/disaster_map_data.xlsx 파일과 인터넷 연결을 확인해 주세요.
       </div>
-
     `;
-
   }
-
 }
 
+function parseConfigSheet() {
+  const ws = workbook.Sheets["01_재해설정"];
+  if (!ws) return [];
 
-/* ==============================
-   지도 영역 크기 계산
-============================== */
+  const rows = XLSX.utils.sheet_to_json(ws, {
+    header: 1,
+    defval: null
+  });
 
-function resize() {
-
-  const rect =
-    mapWrap
-      .getBoundingClientRect();
-
-
-  width =
-    Math.max(
-      560,
-      rect.width
-    );
-
-
-  height =
-    Math.max(
-      560,
-      rect.height
-    );
-
-
-  svg.attr(
-    "viewBox",
-    `0 0 ${width} ${height}`
+  const headerIndex = rows.findIndex(
+    r => String(r?.[0] || "").trim() === "재해구분"
   );
 
+  if (headerIndex < 0) return [];
 
-  if (boundaries) {
+  const headers = rows[headerIndex].map(x => String(x ?? "").trim());
 
-    drawMap();
+  return rows
+    .slice(headerIndex + 1)
+    .filter(r => r?.[0])
+    .map(r => {
+      const obj = {};
+      headers.forEach((h, i) => obj[h] = r[i]);
 
-  }
-
+      return {
+        disaster: String(obj["재해구분"] || "").trim(),
+        sheet: String(obj["시트명"] || obj["재해구분"] || "").trim(),
+        dataType: String(obj["자료구분"] || "").trim(),
+        mapUnit: String(obj["지도단위"] || "").trim(),
+        primaryMetric: String(obj["기본 원형지표"] || "").trim(),
+        unit: String(obj["단위"] || "").trim(),
+        secondary1: String(obj["보조지표1"] || "").trim(),
+        secondary2: String(obj["보조지표2"] || "").trim(),
+        note: String(obj["비고"] || "").trim()
+      };
+    });
 }
 
+function buildDisasterSelect() {
+  const select = document.getElementById("disaster-select");
+  select.innerHTML = "";
 
-/* ==============================
-   기준시각
-============================== */
+  disasterConfigs.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c.disaster;
+    opt.textContent = c.disaster;
+    select.appendChild(opt);
+  });
+
+  select.addEventListener("change", () => {
+    selectDisaster(select.value);
+  });
+}
+
+function selectDisaster(disasterName) {
+  currentConfig = disasterConfigs.find(c => c.disaster === disasterName);
+  if (!currentConfig) return;
+
+  currentData = parseDisasterSheet(currentConfig);
+
+  activeMetric = currentData.primaryHeader;
+
+  document.getElementById("disaster-select").value = disasterName;
+
+  updateHeader();
+  buildMetricButtons();
+  updateSummary();
+  updateRanking();
+  renderSupport();
+  clearSelection(false);
+  renderEmptyPhotos();
+  resize();
+}
+
+function parseDisasterSheet(config) {
+  const ws = workbook.Sheets[config.sheet];
+
+  if (!ws) {
+    throw new Error(`${config.sheet} 시트를 찾지 못했습니다.`);
+  }
+
+  const rows = XLSX.utils.sheet_to_json(ws, {
+    header: 1,
+    defval: null,
+    raw: true
+  });
+
+  const metadata = {};
+
+  for (let i = 2; i <= 9; i++) {
+    const key = String(rows[i]?.[0] ?? "").trim();
+    if (key) metadata[key] = rows[i]?.[1];
+  }
+
+  const reliefHeaderRow = 12;
+  const reliefValueRow = 13;
+  const reliefUnitRow = 14;
+
+  const reliefHeaders = (rows[reliefHeaderRow] || []).map(x => String(x ?? "").trim());
+  const reliefValues = rows[reliefValueRow] || [];
+  const reliefUnits = rows[reliefUnitRow] || [];
+
+  const relief = [];
+
+  for (let i = 1; i < reliefHeaders.length; i++) {
+    const item = reliefHeaders[i];
+
+    if (!item || item === "합계") continue;
+
+    const quantity = numberValue(reliefValues[i]);
+
+    if (quantity === null || quantity === 0) continue;
+
+    relief.push({
+      item,
+      quantity,
+      unit: String(reliefUnits[i] ?? "").trim()
+    });
+  }
+
+  const damageHeaderIndex = rows.findIndex(
+    r => String(r?.[0] || "").trim() === "시도" ||
+         String(r?.[0] || "").trim() === "시도/권역"
+  );
+
+  if (damageHeaderIndex < 0) {
+    throw new Error(`${config.sheet} 시트에서 피해현황 헤더를 찾지 못했습니다.`);
+  }
+
+  const headers = rows[damageHeaderIndex].map(x => String(x ?? "").trim());
+
+  const records = [];
+
+  for (let i = damageHeaderIndex + 1; i < rows.length; i++) {
+    const row = rows[i] || [];
+
+    if (!row.some(v => v !== null && v !== "")) continue;
+
+    const first = String(row[0] ?? "").trim();
+
+    if (
+      first === "합계" ||
+      first.startsWith("※")
+    ) {
+      continue;
+    }
+
+    const obj = {};
+
+    headers.forEach((h, idx) => {
+      if (h) obj[h] = row[idx];
+    });
+
+    const label = recordLabel(obj);
+
+    if (!label) continue;
+
+    records.push({
+      ...obj,
+      __label: label,
+      __coord: resolveCoordinate(obj)
+    });
+  }
+
+  const primaryHeader =
+    findMatchingHeader(headers, config.primaryMetric);
+
+  const secondaryHeaders = [
+    findMatchingHeader(headers, config.secondary1),
+    findMatchingHeader(headers, config.secondary2)
+  ].filter(Boolean);
+
+  const metricHeaders = [
+    primaryHeader,
+    ...secondaryHeaders
+  ].filter((v, i, arr) => v && arr.indexOf(v) === i);
+
+  return {
+    config,
+    metadata,
+    relief,
+    headers,
+    records,
+    primaryHeader,
+    metricHeaders
+  };
+}
+
+function recordLabel(obj) {
+  const sido = String(
+    obj["시도"] ??
+    obj["시도/권역"] ??
+    ""
+  ).trim();
+
+  const sgg = String(obj["시군구"] ?? "").trim();
+  const point = String(obj["지점명"] ?? "").trim();
+
+  if (point) {
+    return sido ? `${sido} ${point}` : point;
+  }
+
+  if (sgg) {
+    return sido ? `${sido} ${sgg}` : sgg;
+  }
+
+  return sido;
+}
+
+function resolveCoordinate(obj) {
+  const lat = numberValue(obj["위도"]);
+  const lon = numberValue(obj["경도"]);
+
+  if (lat !== null && lon !== null) {
+    return [lon, lat];
+  }
+
+  const sido = String(
+    obj["시도"] ??
+    obj["시도/권역"] ??
+    ""
+  ).trim();
+
+  const sgg = String(obj["시군구"] ?? "").trim();
+  const point = String(obj["지점명"] ?? "").trim();
+
+  const candidates = [
+    point && sido ? `${sido} ${point}` : null,
+    sgg && sido ? `${sido} ${sgg}` : null,
+    point || null,
+    sgg || null,
+    sido || null
+  ].filter(Boolean);
+
+  for (const key of candidates) {
+    if (LOCATION_POINTS[key]) return LOCATION_POINTS[key];
+  }
+
+  return null;
+}
 
 function updateHeader() {
+  const md = currentData.metadata;
 
-  const first =
-    disaster.find(
-      d =>
-        d.as_of
+  document.getElementById("asof-text").textContent =
+    excelDateToText(md["기준일"]);
+
+  document.getElementById("data-type-text").textContent =
+    `자료구분 ${currentConfig.dataType || "-"}`;
+
+  document.getElementById("summary-title").textContent =
+    `${currentConfig.disaster} 현황`;
+
+  const start = excelDateToText(md["시작일"]);
+  const end = excelDateToText(md["종료일"]);
+
+  document.getElementById("period-text").textContent =
+    `재해기간 ${start}${end && end !== "-" ? ` ~ ${end}` : " ~ 진행중"}`;
+
+  document.getElementById("virtual-badge")
+    .classList.toggle(
+      "hidden",
+      currentConfig.dataType !== "가상데이터"
     );
-
-
-  document
-    .getElementById(
-      "asof-text"
-    )
-    .textContent =
-      first?.as_of ||
-      "-";
-
 }
 
+function buildMetricButtons() {
+  const wrap = document.getElementById("metric-buttons");
+  wrap.innerHTML = "";
 
-/* ==============================
-   전국 집계
-============================== */
+  currentData.metricHeaders.forEach((header, index) => {
+    const b = document.createElement("button");
+
+    b.className = `metric-btn${index === 0 ? " active" : ""}`;
+    b.textContent = displayMetricName(header);
+    b.dataset.metric = header;
+
+    b.addEventListener("click", () => {
+      document.querySelectorAll(".metric-btn")
+        .forEach(x => x.classList.remove("active"));
+
+      b.classList.add("active");
+      activeMetric = header;
+
+      updateLegend();
+      updateRanking();
+      drawMap();
+    });
+
+    wrap.appendChild(b);
+  });
+
+  updateLegend();
+}
+
+function displayMetricName(header) {
+  return String(header || "")
+    .replace(/\(.*?\)/g, "")
+    .trim();
+}
+
+function metricUnit(header) {
+  const h = String(header || "");
+
+  const m = h.match(/\((.*?)\)/);
+  if (m) return m[1];
+
+  if (header === currentData.primaryHeader) {
+    return currentConfig.unit || "";
+  }
+
+  if (h.includes("사망") || h.includes("부상") || h.includes("대피") || h.includes("고립")) return "명";
+  if (h.includes("가축") || h.includes("양식")) return "마리";
+  if (h.includes("피해") && h.includes("주택")) return "동";
+  if (h.includes("시설")) return "건";
+  if (h.includes("정전")) return "가구";
+  if (h.includes("주의보")) return "회";
+  if (h.includes("여진")) return "회";
+
+  return "";
+}
+
+function updateLegend() {
+  document.getElementById("legend-metric").textContent =
+    `(${displayMetricName(activeMetric)} ${metricUnit(activeMetric)})`;
+}
 
 function updateSummary() {
+  const grid = document.getElementById("summary-grid");
+  grid.innerHTML = "";
 
-  document
-    .getElementById(
-      "sum-regions"
-    )
-    .textContent =
-      fmt.format(
-        disaster.length
-      );
+  const cards = buildSummaryCards();
 
+  cards.forEach((card, index) => {
+    const div = document.createElement("div");
+    div.className = `summary-cell${index === 1 ? " highlight" : ""}`;
 
-  document
-    .getElementById(
-      "sum-evacuated"
-    )
-    .textContent =
-      fmt.format(
+    div.innerHTML = `
+      <span title="${card.label}">${card.label}</span>
+      <div>
+        <strong>${formatValue(card.value, card.decimals)}</strong>
+        <em>${card.unit || ""}</em>
+      </div>
+    `;
 
-        d3.sum(
-          disaster,
-          d =>
-            d.evacuated_people
-        )
-
-      );
-
-
-  document
-    .getElementById(
-      "sum-remaining"
-    )
-    .textContent =
-      fmt.format(
-
-        d3.sum(
-          disaster,
-          d =>
-            d.remaining_people
-        )
-
-      );
-
+    grid.appendChild(div);
+  });
 }
 
+function buildSummaryCards() {
+  const r = currentData.records;
+  const d = currentConfig.disaster;
 
-/* ==============================
-   TOP 5
-============================== */
+  const count = r.length;
 
-function updateRanking() {
-
-  const rows =
-    [...disaster]
-
-      .sort(
-        (a, b) =>
-          b[activeMetric] -
-          a[activeMetric]
-      )
-
-      .slice(
-        0,
-        5
-      );
-
-
-  document
-    .getElementById(
-      "ranking-title"
-    )
-    .textContent =
-      `${metricNames[activeMetric]} TOP 5`;
-
-
-  const tbody =
-    document
-      .getElementById(
-        "ranking-body"
-      );
-
-
-  tbody.innerHTML =
-    "";
-
-
-  rows.forEach(
-    (d, index) => {
-
-      const tr =
-        document
-          .createElement(
-            "tr"
-          );
-
-
-      /*
-        가독성을 위해
-        "경상남도 거제시"가 아니라
-        "거제시"만 표시
-      */
-
-      tr.innerHTML = `
-
-        <td>
-          ${index + 1}
-        </td>
-
-        <td>
-          ${d.sgg}
-        </td>
-
-        <td>
-          ${fmt.format(
-            d.evacuated_people
-          )}
-        </td>
-
-        <td>
-          ${fmt.format(
-            d.returned_people
-          )}
-        </td>
-
-        <td>
-          ${fmt.format(
-            d.remaining_people
-          )}
-        </td>
-
-      `;
-
-
-      tr.addEventListener(
-        "click",
-        () =>
-          selectRegion(d)
-      );
-
-
-      tbody.appendChild(
-        tr
-      );
-
-    }
-  );
-
-}
-
-
-/* ==============================
-   지도 그리기
-============================== */
-
-function drawMap() {
-
-  svg
-    .selectAll("*")
-    .remove();
-
-
-  const root =
-    svg
-      .append("g")
-      .attr(
-        "class",
-        "map-root"
-      );
-
-
-  /*
-    이전보다 지도 여백을 크게 줄여
-    대한민국 지도가 좌측 화면을
-    더 크게 채우도록 함
-  */
-
-  const projection =
-    d3
-      .geoMercator()
-      .fitExtent(
-
-        [
-
-          [
-            18,
-            34
-          ],
-
-          [
-            width - 18,
-            height - 26
-          ]
-
-        ],
-
-        boundaries
-
-      );
-
-
-  const path =
-    d3.geoPath(
-      projection
+  const sum = header =>
+    d3.sum(
+      r,
+      x => numberValue(x[header]) ?? 0
     );
 
+  const max = header =>
+    d3.max(
+      r.map(x => numberValue(x[header])).filter(v => v !== null)
+    ) ?? 0;
 
-  /* 시군구 경계 */
+  const h = name => findMatchingHeader(currentData.headers, name);
+
+  if (d === "폭염") {
+    return [
+      { label: "피해지역", value: count, unit: "개 지역" },
+      { label: "온열질환자", value: sum(h("온열질환자")), unit: "명" },
+      { label: "사망자", value: sum(h("사망자")), unit: "명" },
+      { label: "가축피해", value: sum(h("가축피해")), unit: "마리" }
+    ];
+  }
+
+  if (d === "호우") {
+    return [
+      { label: "피해·관측지역", value: count, unit: "개 지역" },
+      { label: "최대 강수량", value: max(h("강수량")), unit: "mm", decimals: 1 },
+      { label: "사망자", value: sum(h("사망자")), unit: "명" },
+      { label: "부상자", value: sum(h("부상자")), unit: "명" }
+    ];
+  }
+
+  if (d === "태풍") {
+    return [
+      { label: "피해지역", value: count, unit: "개 지역" },
+      { label: "최대 순간풍속", value: max(h("최대순간풍속")), unit: "m/s", decimals: 1 },
+      { label: "누적 강수량", value: sum(h("강수량")), unit: "mm", decimals: 1 },
+      { label: "대피인원", value: sum(h("대피인원")), unit: "명" }
+    ];
+  }
+
+  if (d === "산불") {
+    return [
+      { label: "피해지역", value: count, unit: "개 지역" },
+      { label: "산불 피해면적", value: sum(h("산불피해면적")), unit: "ha" },
+      { label: "대피인원", value: sum(h("대피인원")), unit: "명" },
+      { label: "주택피해", value: sum(h("주택피해")), unit: "동" }
+    ];
+  }
+
+  if (d === "대설") {
+    return [
+      { label: "피해지역", value: count, unit: "개 지역" },
+      { label: "최심적설", value: max(h("최심적설")), unit: "cm", decimals: 1 },
+      { label: "시설피해", value: sum(h("시설피해")), unit: "건" },
+      { label: "고립인원", value: sum(h("고립인원")), unit: "명" }
+    ];
+  }
+
+  if (d === "지진") {
+    return [
+      { label: "피해지역", value: count, unit: "개 지역" },
+      { label: "최대 진도", value: max(h("진도")), unit: "MMI" },
+      { label: "부상자", value: sum(h("부상자")), unit: "명" },
+      { label: "시설피해", value: sum(h("시설피해")), unit: "건" }
+    ];
+  }
+
+  return [
+    { label: "피해지역", value: count, unit: "개 지역" },
+    { label: displayMetricName(currentData.primaryHeader), value: sum(currentData.primaryHeader), unit: metricUnit(currentData.primaryHeader) }
+  ];
+}
+
+function updateRanking() {
+  const metric = activeMetric;
+
+  const rows = currentData.records
+    .filter(r => numberValue(r[metric]) !== null)
+    .sort((a, b) => (numberValue(b[metric]) ?? 0) - (numberValue(a[metric]) ?? 0))
+    .slice(0, 5);
+
+  document.getElementById("ranking-title").textContent =
+    `${displayMetricName(metric)} TOP 5`;
+
+  const head = document.getElementById("ranking-head");
+
+  const aux = currentData.metricHeaders.filter(h => h !== metric).slice(0, 2);
+
+  head.innerHTML = `
+    <th>순위</th>
+    <th>지역</th>
+    <th>${displayMetricName(metric)}</th>
+    ${aux.map(h => `<th>${displayMetricName(h)}</th>`).join("")}
+  `;
+
+  const body = document.getElementById("ranking-body");
+  body.innerHTML = "";
+
+  rows.forEach((r, i) => {
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td>${i + 1}</td>
+      <td title="${r.__label}">${shortLabel(r)}</td>
+      <td>${formatMetricCell(r[metric], metric)}</td>
+      ${aux.map(h => `<td>${formatMetricCell(r[h], h)}</td>`).join("")}
+    `;
+
+    tr.addEventListener("click", () => selectRegion(r));
+
+    body.appendChild(tr);
+  });
+}
+
+function shortLabel(record) {
+  return String(
+    record["지점명"] ||
+    record["시군구"] ||
+    record["시도"] ||
+    record["시도/권역"] ||
+    record.__label
+  );
+}
+
+function formatValue(v, decimals = 0) {
+  const n = numberValue(v);
+
+  if (n === null) return "-";
+
+  return n.toLocaleString(
+    "ko-KR",
+    {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals
+    }
+  );
+}
+
+function formatMetricCell(v, header) {
+  const n = numberValue(v);
+  if (n === null) return "-";
+
+  const decimals =
+    String(header).includes("강수량") ||
+    String(header).includes("풍속") ||
+    String(header).includes("적설")
+      ? 1
+      : 0;
+
+  return formatValue(n, decimals);
+}
+
+function resize() {
+  const rect = mapWrap.getBoundingClientRect();
+
+  width = Math.max(560, rect.width);
+  height = Math.max(560, rect.height);
+
+  svg.attr("viewBox", `0 0 ${width} ${height}`);
+
+  drawMap();
+}
+
+function drawMap() {
+  svg.selectAll("*").remove();
+
+  const root = svg
+    .append("g")
+    .attr("class", "map-root");
+
+  const projection = d3
+    .geoMercator()
+    .fitExtent(
+      [[18, 34], [width - 18, height - 26]],
+      boundaries
+    );
+
+  const path = d3.geoPath(projection);
 
   root
     .append("g")
     .selectAll("path")
-    .data(
-      boundaries.features
-    )
+    .data(boundaries.features)
     .join("path")
-    .attr(
-      "class",
-      "region"
-    )
-    .attr(
-      "d",
-      path
-    );
+    .attr("class", "region")
+    .attr("d", path);
 
-
-  /*
-    현재 선택 지표가
-    1 이상인 지역만 표시
-  */
-
-  const positive =
-    disaster.filter(
-
-      d =>
-        d[activeMetric] > 0
-        &&
-        regionPoints[
-          d.sgg_code
-        ]
-
-    );
-
+  const usable = currentData.records
+    .map(r => {
+      const v = numberValue(r[activeMetric]);
+      return {
+        ...r,
+        __value: v
+      };
+    })
+    .filter(r => r.__coord && r.__value !== null && r.__value > 0);
 
   const maxValue =
-    d3.max(
+    d3.max(usable, r => r.__value) || 1;
 
-      positive,
+  const radius = d3
+    .scaleSqrt()
+    .domain([Math.min(1, maxValue), maxValue])
+    .range([8, 52]);
 
-      d =>
-        d[activeMetric]
+  const points = usable.map(r => {
+    const [x, y] = projection(r.__coord);
 
-    ) || 1;
+    return {
+      ...r,
+      x,
+      y,
+      r: radius(r.__value)
+    };
+  });
 
-
-  /*
-    sqrt scale
-
-    숫자가 4배일 때
-    반지름이 4배가 아니라
-    면적이 4배가 됨
-  */
-
-  const radius =
-    d3
-      .scaleSqrt()
-
-      .domain([
-        1,
-        maxValue
-      ])
-
-      .range([
-        8,
-        52
-      ]);
-
-
-  const points =
-    positive.map(
-      d => {
-
-        const [
-          x,
-          y
-        ] =
-          projection(
-
-            regionPoints[
-              d.sgg_code
-            ]
-
-          );
-
-
-        return {
-
-          ...d,
-
-          x,
-
-          y,
-
-          r:
-            radius(
-              d[activeMetric]
-            )
-
-        };
-
-      }
-    );
-
-
-  /*
-    피해지역 그룹
-  */
-
-  const groups =
-    root
-      .append("g")
-
-      .selectAll("g")
-
-      .data(
-        points
-      )
-
-      .join("g")
-
-      .attr(
-        "transform",
-        d =>
-          `translate(${d.x},${d.y})`
-      )
-
-      .on(
-        "click",
-        (
-          event,
-          d
-        ) => {
-
-          event
-            .stopPropagation();
-
-
-          selectRegion(
-            d
-          );
-
-        }
-      );
-
-
-  /*
-    원
-  */
+  const groups = root
+    .append("g")
+    .selectAll("g")
+    .data(points)
+    .join("g")
+    .attr(
+      "transform",
+      d => `translate(${d.x},${d.y})`
+    )
+    .on("click", (event, d) => {
+      event.stopPropagation();
+      selectRegion(d);
+    });
 
   groups
     .append("circle")
-
-    .attr(
-      "class",
-      "bubble"
-    )
-
-    .attr(
-      "r",
-      d =>
-        d.r
-    );
-
-
-  /*
-    원 안 숫자
-  */
+    .attr("class", "bubble")
+    .attr("r", d => d.r);
 
   groups
-    .filter(
-      d =>
-        d.r >= 11
-    )
-
+    .filter(d => d.r >= 12)
     .append("text")
-
-    .attr(
-      "class",
-      "bubble-value"
-    )
-
-    .attr(
-      "y",
-      6
-    )
-
+    .attr("class", "bubble-value")
+    .attr("y", 6)
     .style(
       "font-size",
-      d =>
-        d.r >= 24
-          ?
-          "18px"
-          :
-          "10px"
+      d => d.r >= 25 ? "17px" : "10px"
     )
-
     .text(
-      d =>
-        fmt.format(
-          d[activeMetric]
-        )
+      d => formatMetricCell(d.__value, activeMetric)
     );
-
-
-  /*
-    지역명
-  */
 
   groups
     .append("text")
-
-    .attr(
-      "class",
-      "map-place-label"
-    )
-
-    .attr(
-      "x",
-      d => {
-
-        const offset =
-          labelOffsets[
-            d.sgg_code
-          ]
-          ||
-          [
-            d.r + 10,
-            0
-          ];
-
-
-        if (
-          offset[0] < 0
-        ) {
-
-          return offset[0];
-
-        }
-
-
-        return (
-          d.r +
-          offset[0]
-        );
-
-      }
-    )
-
-    .attr(
-      "y",
-      d => {
-
-        const offset =
-          labelOffsets[
-            d.sgg_code
-          ]
-          ||
-          [
-            0,
-            0
-          ];
-
-
-        return (
-          offset[1] +
-          4
-        );
-
-      }
-    )
-
-    .attr(
-      "text-anchor",
-      d => {
-
-        const offset =
-          labelOffsets[
-            d.sgg_code
-          ]
-          ||
-          [
-            1,
-            0
-          ];
-
-
-        return (
-          offset[0] < 0
-          ?
-          "end"
-          :
-          "start"
-        );
-
-      }
-    )
-
-    .text(
-      d =>
-        d.sgg
-    );
-
+    .attr("class", "map-place-label")
+    .attr("x", d => d.r + 8)
+    .attr("y", 4)
+    .text(d => shortLabel(d));
 }
 
+function selectRegion(record) {
+  document.getElementById("detail-empty").classList.add("hidden");
+  document.getElementById("detail-content").classList.remove("hidden");
+  document.getElementById("clear-selection").classList.remove("hidden");
 
-/* ==============================
-   지역 선택
-============================== */
+  document.getElementById("detail-title").textContent =
+    record.__label;
 
-function selectRegion(d) {
+  const detail = document.getElementById("detail-content");
+  detail.innerHTML = "";
 
-  document
-    .getElementById(
-      "detail-empty"
-    )
-    .classList
-    .add(
-      "hidden"
-    );
+  const visibleHeaders = currentData.headers.filter(h => {
+    if (!h) return false;
+    if (["시도", "시도/권역", "시군구", "지점명", "위도", "경도", "비고"].includes(h)) return false;
 
+    return record[h] !== null &&
+           record[h] !== undefined &&
+           record[h] !== "";
+  });
 
-  document
-    .getElementById(
-      "detail-content"
-    )
-    .classList
-    .remove(
-      "hidden"
-    );
+  visibleHeaders.forEach(h => {
+    const row = document.createElement("div");
+    row.className =
+      `detail-row${h === activeMetric ? " primary" : ""}`;
 
+    row.innerHTML = `
+      <span>${displayMetricName(h)}</span>
+      <strong>${formatMetricCell(record[h], h)} ${metricUnit(h)}</strong>
+    `;
 
-  document
-    .getElementById(
-      "clear-selection"
-    )
-    .classList
-    .remove(
-      "hidden"
-    );
+    detail.appendChild(row);
+  });
 
-
-  document
-    .getElementById(
-      "detail-title"
-    )
-    .textContent =
-      `${d.sido} ${d.sgg}`;
-
-
-  document
-    .getElementById(
-      "detail-evacuated"
-    )
-    .textContent =
-      `${fmt.format(
-        d.evacuated_people
-      )}명`;
-
-
-  document
-    .getElementById(
-      "detail-returned"
-    )
-    .textContent =
-      `${fmt.format(
-        d.returned_people
-      )}명`;
-
-
-  document
-    .getElementById(
-      "detail-remaining"
-    )
-    .textContent =
-      `${fmt.format(
-        d.remaining_people
-      )}명`;
-
-
-  document
-    .getElementById(
-      "detail-reason"
-    )
-    .textContent =
-      d.evacuation_reason
-      ||
-      "-";
-
-
-  renderPhotos(
-    d.sgg_code
-  );
-
+  renderPhotos(record);
 }
 
+function clearSelection(showEmpty = true) {
+  document.getElementById("detail-title").textContent =
+    "지역을 선택해 주세요";
 
-/* ==============================
-   지역 선택 해제
-============================== */
+  document.getElementById("detail-content").classList.add("hidden");
+  document.getElementById("detail-content").innerHTML = "";
+  document.getElementById("clear-selection").classList.add("hidden");
 
-function clearSelection() {
-
-  document
-    .getElementById(
-      "detail-empty"
-    )
-    .classList
-    .remove(
-      "hidden"
-    );
-
-
-  document
-    .getElementById(
-      "detail-content"
-    )
-    .classList
-    .add(
-      "hidden"
-    );
-
-
-  document
-    .getElementById(
-      "clear-selection"
-    )
-    .classList
-    .add(
-      "hidden"
-    );
-
-
-  document
-    .getElementById(
-      "detail-title"
-    )
-    .textContent =
-      "지역을 선택해 주세요";
-
-
-  renderEmptyPhotos();
-
+  if (showEmpty) {
+    document.getElementById("detail-empty").classList.remove("hidden");
+  } else {
+    document.getElementById("detail-empty").classList.remove("hidden");
+  }
 }
-
-
-/* ==============================
-   현장사진
-============================== */
-
-function renderPhotos(code) {
-
-  const arr =
-    photos.filter(
-
-      p =>
-        String(
-          p.sgg_code
-        )
-        ===
-        String(
-          code
-        )
-
-    );
-
-
-  const grid =
-    document
-      .getElementById(
-        "photo-grid"
-      );
-
-
-  const empty =
-    document
-      .getElementById(
-        "photo-empty"
-      );
-
-
-  document
-    .getElementById(
-      "photos-count"
-    )
-    .textContent =
-      `${arr.length}장`;
-
-
-  grid.innerHTML =
-    "";
-
-
-  empty
-    .classList
-    .toggle(
-
-      "hidden",
-
-      arr.length > 0
-
-    );
-
-
-  arr.forEach(
-    p => {
-
-      const anchor =
-        document
-          .createElement(
-            "a"
-          );
-
-
-      anchor.className =
-        "photo-card";
-
-
-      anchor.href =
-        p.file;
-
-
-      anchor.target =
-        "_blank";
-
-
-      anchor.rel =
-        "noopener";
-
-
-      anchor.innerHTML = `
-
-        <img
-
-          src="${p.file}"
-
-          alt="${
-            p.caption ||
-            "현장사진"
-          }"
-
-        >
-
-      `;
-
-
-      grid
-        .appendChild(
-          anchor
-        );
-
-    }
-  );
-
-}
-
-
-/* ==============================
-   사진 미등록 상태
-============================== */
-
-function renderEmptyPhotos() {
-
-  document
-    .getElementById(
-      "photo-grid"
-    )
-    .innerHTML =
-      "";
-
-
-  document
-    .getElementById(
-      "photos-count"
-    )
-    .textContent =
-      "0장";
-
-
-  document
-    .getElementById(
-      "photo-empty"
-    )
-    .classList
-    .remove(
-      "hidden"
-    );
-
-}
-
-
-/* ==============================
-   희망브리지 구호지원
-============================== */
 
 function renderSupport() {
+  const grid = document.getElementById("support-grid");
+  grid.innerHTML = "";
 
-  const grid =
-    document
-      .getElementById(
-        "support-grid"
-      );
+  if (!currentData.relief.length) {
+    grid.innerHTML = `
+      <div class="support-card" style="grid-column:1/-1">
+        <span>등록된 구호지원 수량이 없습니다.</span>
+      </div>
+    `;
+    return;
+  }
 
+  currentData.relief.forEach(d => {
+    const div = document.createElement("div");
 
-  grid.innerHTML =
-    "";
+    div.className = "support-card";
 
+    div.innerHTML = `
+      <span>${d.item}</span>
+      <strong>${formatValue(d.quantity)}</strong>
+      <small>${d.unit}</small>
+    `;
 
-  support.forEach(
-    d => {
-
-      const div =
-        document
-          .createElement(
-            "div"
-          );
-
-
-      div.className =
-        "support-card";
-
-
-      div.innerHTML = `
-
-        <span>
-          ${d.item}
-        </span>
-
-        <strong>
-          ${fmt.format(
-            d.quantity
-          )}
-        </strong>
-
-        <small>
-          ${d.unit}
-        </small>
-
-      `;
-
-
-      grid
-        .appendChild(
-          div
-        );
-
-    }
-  );
-
+    grid.appendChild(div);
+  });
 }
 
+function renderPhotos(record) {
+  const keys = [
+    String(record["지점명"] || "").trim(),
+    String(record["시군구"] || "").trim(),
+    String(record["시도"] || record["시도/권역"] || "").trim()
+  ].filter(Boolean);
 
-/* ==============================
-   지표 전환
-============================== */
+  const arr = photos.filter(p => {
+    const pSido = String(p.sido || "").trim();
+    const pSgg = String(p.sgg || "").trim();
 
-document
-  .querySelectorAll(
-    ".metric-btn"
-  )
-  .forEach(
-    button => {
+    return keys.some(k => k === pSgg || k === pSido);
+  });
 
-      button.addEventListener(
-        "click",
-        () => {
+  const grid = document.getElementById("photo-grid");
+  const empty = document.getElementById("photo-empty");
 
-          document
-            .querySelectorAll(
-              ".metric-btn"
-            )
-            .forEach(
-              b =>
-                b
-                  .classList
-                  .remove(
-                    "active"
-                  )
-            );
+  document.getElementById("photos-count").textContent =
+    `${arr.length}장`;
 
+  grid.innerHTML = "";
 
-          button
-            .classList
-            .add(
-              "active"
-            );
+  empty.classList.toggle("hidden", arr.length > 0);
 
+  arr.forEach(p => {
+    const a = document.createElement("a");
 
-          activeMetric =
-            button.dataset.metric;
+    a.className = "photo-card";
+    a.href = p.file;
+    a.target = "_blank";
+    a.rel = "noopener";
 
+    a.innerHTML = `
+      <img
+        src="${p.file}"
+        alt="${p.caption || "현장사진"}"
+      >
+    `;
 
-          document
-            .getElementById(
-              "legend-metric"
-            )
-            .textContent =
+    grid.appendChild(a);
+  });
+}
 
-              activeMetric
-              ===
-              "remaining_people"
+function renderEmptyPhotos() {
+  document.getElementById("photo-grid").innerHTML = "";
+  document.getElementById("photos-count").textContent = "0장";
+  document.getElementById("photo-empty").classList.remove("hidden");
+}
 
-              ?
-
-              "(미귀가 인원)"
-
-              :
-
-              "(일시대피 인원)";
-
-
-          updateRanking();
-
-          drawMap();
-
-        }
+document.getElementById("reset-view")
+  .addEventListener("click", () => {
+    svg
+      .transition()
+      .duration(350)
+      .call(
+        zoom.transform,
+        d3.zoomIdentity
       );
+  });
 
-    }
-  );
+document.getElementById("clear-selection")
+  .addEventListener("click", () => clearSelection(true));
 
-
-/* ==============================
-   전국보기
-============================== */
-
-document
-  .getElementById(
-    "reset-view"
-  )
-  .addEventListener(
-    "click",
-    () => {
-
-      svg
-        .transition()
-
-        .duration(
-          350
-        )
-
-        .call(
-          zoom.transform,
-          d3.zoomIdentity
-        );
-
-    }
-  );
-
-
-/* ==============================
-   선택 해제
-============================== */
-
-document
-  .getElementById(
-    "clear-selection"
-  )
-  .addEventListener(
-    "click",
-    clearSelection
-  );
-
-
-/* ==============================
-   Resize debounce
-============================== */
-
-function debounce(
-  fn,
-  delay
-) {
-
+function debounce(fn, delay) {
   let timer;
 
+  return (...args) => {
+    clearTimeout(timer);
 
-  return (
-    ...args
-  ) => {
-
-    clearTimeout(
-      timer
+    timer = setTimeout(
+      () => fn(...args),
+      delay
     );
-
-
-    timer =
-      setTimeout(
-
-        () =>
-          fn(
-            ...args
-          ),
-
-        delay
-
-      );
-
   };
-
 }
-
-
-/* ==============================
-   실행
-============================== */
 
 init();
