@@ -1121,8 +1121,8 @@ function drawMap() {
   /*
     확대 여부와 관계없이 화면상 버블 최대크기는 작게 유지합니다.
   */
-  const minRadius = isNationwide ? 4 : 5;
-  const maxRadius = isNationwide ? 20 : 24;
+  const minRadius = isNationwide ? 8 : 10;
+  const maxRadius = isNationwide ? 40 : 48;
 
   const radius = d3
     .scaleSqrt()
