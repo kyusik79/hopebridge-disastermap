@@ -862,36 +862,115 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
 }
 
 
-/* v16: 전체 사진 보기 시 지역/설명 표시 */
-.photo-card{
-  position:relative;
+/* v19: 업로드 패널 내 사진 삭제 관리 */
+.upload-divider{
+  margin:20px 0 14px;
+  border-top:1px solid #eaecf0;
 }
 
-.photo-meta{
-  position:absolute;
-  left:0;
-  right:0;
-  bottom:0;
+.upload-delete-head{
   display:flex;
-  flex-direction:column;
-  gap:1px;
-  padding:18px 7px 6px;
-  background:linear-gradient(to top, rgba(0,0,0,.62), rgba(0,0,0,0));
-  color:#fff;
-  pointer-events:none;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
 }
 
-.photo-meta b{
+.upload-delete-head strong{
+  display:block;
+  font-size:13px;
+  color:#344054;
+}
+
+.upload-delete-head span{
+  display:block;
+  margin-top:2px;
   font-size:10px;
-  font-weight:800;
+  color:#98a2b3;
 }
 
-.photo-meta em{
-  font-size:9px;
-  font-style:normal;
-  line-height:1.25;
-  opacity:.92;
+.upload-delete-head button{
+  border:1px solid #d0d5dd;
+  border-radius:7px;
+  background:#fff;
+  color:#475467;
+  padding:6px 9px;
+  font-size:10px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.photo-manage-list{
+  display:grid;
+  gap:8px;
+  max-height:240px;
+  overflow:auto;
+}
+
+.photo-manage-item{
+  display:grid;
+  grid-template-columns:64px 1fr auto;
+  align-items:center;
+  gap:9px;
+  padding:7px;
+  border:1px solid #eaecf0;
+  border-radius:8px;
+  background:#fafbfc;
+}
+
+.photo-manage-item img{
+  width:64px;
+  height:48px;
+  object-fit:cover;
+  border-radius:6px;
+  background:#eef0f2;
+}
+
+.photo-manage-meta{
+  min-width:0;
+}
+
+.photo-manage-meta b{
+  display:block;
+  font-size:11px;
+  color:#344054;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
+}
+
+.photo-manage-meta span{
+  display:block;
+  margin-top:3px;
+  font-size:9px;
+  line-height:1.35;
+  color:#98a2b3;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.photo-delete-btn{
+  border:1px solid #fecdca;
+  border-radius:7px;
+  background:#fff5f4;
+  color:#b42318;
+  padding:6px 8px;
+  font-size:10px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.photo-delete-btn:disabled{
+  opacity:.45;
+  cursor:not-allowed;
+}
+
+.photo-manage-empty{
+  padding:14px;
+  border:1px dashed #d0d5dd;
+  border-radius:8px;
+  color:#98a2b3;
+  font-size:10px;
+  text-align:center;
 }
