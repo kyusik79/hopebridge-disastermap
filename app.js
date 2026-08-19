@@ -202,7 +202,7 @@ async function init() {
 
     workbook = XLSX.read(xlsxBuffer, {
       type: "array",
-      cellDates: true
+      cellDates: false
     });
 
     boundaries = mapJson;
