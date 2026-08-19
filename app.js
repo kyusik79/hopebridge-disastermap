@@ -1079,6 +1079,139 @@ function renderOverviewInset(points) {
       : "";
 }
 
+
+function layoutPlaceLabels(points, viewTransform) {
+  /*
+    지역명 충돌 회피
+    - 큰 원부터 우선 배치
+    - 오른쪽/왼쪽/위/아래/대각선 순으로 후보 위치 탐색
+    - 이미 배치된 지역명과 겹치지 않는 위치를 선택
+    - 확대 상태에서도 화면상 글자 간격이 일정하도록 screen 좌표에서 계산
+  */
+  if (!points?.length) return points;
+
+  const k = viewTransform?.k || 1;
+  const tx = viewTransform?.x || 0;
+  const ty = viewTransform?.y || 0;
+
+  const placedBoxes = [];
+  const result = new Map();
+
+  const sorted = [...points].sort(
+    (a, b) => (b.__value || 0) - (a.__value || 0)
+  );
+
+  function overlaps(a, b, pad = 5) {
+    return !(
+      a.right + pad < b.left ||
+      a.left - pad > b.right ||
+      a.bottom + pad < b.top ||
+      a.top - pad > b.bottom
+    );
+  }
+
+  sorted.forEach(d => {
+    const label = String(shortLabel(d) || "");
+    const fontSize = 13;
+    const textWidth = Math.max(
+      28,
+      label.length * fontSize * 0.72
+    );
+    const textHeight = 18;
+
+    const sx =
+      k * (d.displayX ?? d.x) + tx;
+    const sy =
+      k * (d.displayY ?? d.y) + ty;
+
+    const gap = d.r + 9;
+
+    const candidates = [
+      { dx: gap,       dy: 4,             anchor: "start" },
+      { dx: -gap,      dy: 4,             anchor: "end"   },
+      { dx: 0,         dy: -(d.r + 11),   anchor: "middle"},
+      { dx: 0,         dy: d.r + 18,      anchor: "middle"},
+      { dx: gap,       dy: -(d.r * .55),  anchor: "start" },
+      { dx: gap,       dy: d.r * .75,     anchor: "start" },
+      { dx: -gap,      dy: -(d.r * .55),  anchor: "end"   },
+      { dx: -gap,      dy: d.r * .75,     anchor: "end"   }
+    ];
+
+    let chosen = null;
+
+    for (const c of candidates) {
+      let left;
+
+      if (c.anchor === "start") {
+        left = sx + c.dx;
+      } else if (c.anchor === "end") {
+        left = sx + c.dx - textWidth;
+      } else {
+        left = sx + c.dx - textWidth / 2;
+      }
+
+      const top =
+        sy + c.dy - textHeight * 0.72;
+
+      const box = {
+        left,
+        top,
+        right: left + textWidth,
+        bottom: top + textHeight
+      };
+
+      const inside =
+        box.left >= 5 &&
+        box.right <= width - 5 &&
+        box.top >= 5 &&
+        box.bottom <= height - 5;
+
+      const collision =
+        placedBoxes.some(p => overlaps(box, p));
+
+      if (inside && !collision) {
+        chosen = { ...c, box };
+        break;
+      }
+    }
+
+    /*
+      모든 후보가 겹치면 충돌이 가장 적은 기본 오른쪽 위치를 사용.
+      일반적으로 5~10개 지점 규모에서는 위 후보들 안에서 해결됩니다.
+    */
+    if (!chosen) {
+      const c = candidates[0];
+
+      chosen = {
+        ...c,
+        box: {
+          left: sx + c.dx,
+          top: sy + c.dy - textHeight * .72,
+          right: sx + c.dx + textWidth,
+          bottom: sy + c.dy - textHeight * .72 + textHeight
+        }
+      };
+    }
+
+    placedBoxes.push(chosen.box);
+
+    result.set(d, {
+      labelDx: chosen.dx,
+      labelDy: chosen.dy,
+      labelAnchor: chosen.anchor
+    });
+  });
+
+  return points.map(d => ({
+    ...d,
+    ...(result.get(d) || {
+      labelDx: d.r + 9,
+      labelDy: 4,
+      labelAnchor: "start"
+    })
+  }));
+}
+
 function drawMap() {
   svg.selectAll("*").remove();
 
@@ -1193,8 +1326,14 @@ function drawMap() {
     autoZoomMainCluster = [];
   }
 
-  const points =
+  const displacedPoints =
     layoutDisplacedSymbols(rawPoints, viewTransform);
+
+  /*
+    원 위치를 정리한 뒤 지역명까지 별도로 충돌 회피 배치합니다.
+  */
+  const points =
+    layoutPlaceLabels(displacedPoints, viewTransform);
 
   /*
     실제 위치와 이동된 원 사이의 연결선.
@@ -1276,19 +1415,9 @@ function drawMap() {
   labels
     .append("text")
     .attr("class", "map-place-label")
-    .attr(
-      "x",
-      d => d.labelSide === "left"
-        ? -(d.r + 7)
-        : d.r + 7
-    )
-    .attr("y", 4)
-    .attr(
-      "text-anchor",
-      d => d.labelSide === "left"
-        ? "end"
-        : "start"
-    )
+    .attr("x", d => d.labelDx)
+    .attr("y", d => d.labelDy)
+    .attr("text-anchor", d => d.labelAnchor)
     .text(d => shortLabel(d));
 
   /*
