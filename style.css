@@ -12,9 +12,12 @@
   --amber-soft:#fff7ed;
 }
 
-*{box-sizing:border-box}
+*{
+  box-sizing:border-box;
+}
 
-html,body{
+html,
+body{
   margin:0;
   min-height:100%;
   font-family:Pretendard,"Noto Sans KR","Malgun Gothic",Arial,sans-serif;
@@ -22,7 +25,10 @@ html,body{
   background:#fff;
 }
 
-button,select{font:inherit}
+button,
+select{
+  font:inherit;
+}
 
 
 /* =========================================================
@@ -32,13 +38,14 @@ button,select{font:inherit}
 .topbar{
   min-height:92px;
   display:grid;
-  grid-template-columns:210px 1fr auto;
+  grid-template-columns:auto 1fr auto;
   align-items:center;
   padding:14px 30px;
   border-bottom:1px solid var(--line);
   background:#fff;
   gap:0;
 }
+
 
 /* 로고 영역 */
 .brand{
@@ -49,7 +56,8 @@ button,select{font:inherit}
   border-right:1px solid #d8dbe0;
 }
 
-/* 현재 사용하지 않지만 기존 코드 호환을 위해 유지 */
+
+/* 과거 로고 구조 호환용 */
 .brand-symbol{
   width:54px;
   height:25px;
@@ -81,14 +89,16 @@ button,select{font:inherit}
   color:#555;
 }
 
-/* 실제 희망브리지 CI PNG */
+
+/* 희망브리지 CI */
 .brand-logo{
   width:130px;
   height:auto;
   display:block;
 }
 
-/* 제목 영역 */
+
+/* 제목 */
 .title-wrap{
   display:flex;
   align-items:baseline;
@@ -109,6 +119,8 @@ button,select{font:inherit}
   color:#7d8490;
 }
 
+
+/* 헤더 우측 */
 .header-tools{
   display:flex;
   align-items:center;
@@ -160,7 +172,7 @@ button,select{font:inherit}
 
 
 /* =========================================================
-   지도
+   지도 영역
 ========================================================= */
 
 .map-card{
@@ -354,7 +366,9 @@ button,select{font:inherit}
 }
 
 @keyframes spin{
-  to{transform:rotate(360deg)}
+  to{
+    transform:rotate(360deg);
+  }
 }
 
 .hidden{
@@ -417,7 +431,7 @@ button,select{font:inherit}
 
 
 /* =========================================================
-   상단 요약 KPI
+   상단 KPI
 ========================================================= */
 
 .summary-grid{
@@ -560,7 +574,7 @@ tbody td:last-child{
 
 
 /* =========================================================
-   지역 상세
+   선택 지역 상세
 ========================================================= */
 
 .detail-panel{
@@ -740,6 +754,7 @@ tbody td:last-child{
 ========================================================= */
 
 @media(max-width:1250px){
+
   .dashboard{
     grid-template-columns:1fr;
     height:auto;
@@ -757,7 +772,9 @@ tbody td:last-child{
   }
 }
 
+
 @media(max-width:800px){
+
   .topbar{
     grid-template-columns:1fr;
     gap:12px;
@@ -828,9 +845,9 @@ tbody td:last-child{
 }
 
 
-/* =========================================
+/* =========================================================
    숨김 업로드 진입점 / 내부 업로드 패널
-========================================= */
+========================================================= */
 
 .upload-secret-trigger{
   position:fixed;
@@ -976,6 +993,7 @@ tbody td:last-child{
 }
 
 @media(max-width:800px){
+
   .upload-modal{
     padding:10px;
   }
@@ -1004,6 +1022,7 @@ tbody td:last-child{
 }
 
 @media(min-width:1251px){
+
   .detail-panel{
     min-height:210px;
   }
@@ -1084,6 +1103,7 @@ tbody td:last-child{
 }
 
 @media(max-width:800px){
+
   .map-overview-inset{
     width:150px;
     right:10px;
@@ -1254,7 +1274,7 @@ tbody td:last-child{
 
 
 /* =========================================================
-   v21: 현장사진 지역명/설명 오버레이
+   v21: 현장사진 지역명 / 설명 오버레이
 ========================================================= */
 
 .photo-card{
@@ -1270,7 +1290,11 @@ tbody td:last-child{
   flex-direction:column;
   gap:1px;
   padding:20px 8px 7px;
-  background:linear-gradient(to top, rgba(0,0,0,.68), rgba(0,0,0,0));
+  background:linear-gradient(
+    to top,
+    rgba(0,0,0,.68),
+    rgba(0,0,0,0)
+  );
   color:#fff;
   pointer-events:none;
 }
@@ -1301,7 +1325,7 @@ tbody td:last-child{
   font-size:15px;
   line-height:1.25;
   font-weight:900;
-  letter-spacing:-0.2px;
+  letter-spacing:-.2px;
   margin-bottom:6px;
 }
 
@@ -1387,8 +1411,9 @@ thead{
 }
 
 
-/* 노트북/태블릿 */
+/* 노트북 / 태블릿 */
 @media(max-width:1250px){
+
   .section-kicker{
     font-size:14px;
   }
@@ -1409,6 +1434,7 @@ thead{
 
 /* 모바일 */
 @media(max-width:800px){
+
   .section-kicker{
     font-size:13px;
   }
@@ -1570,6 +1596,7 @@ body.photo-lightbox-open{
 }
 
 @media(max-width:800px){
+
   .photo-lightbox-toolbar{
     top:10px;
     left:12px;
@@ -1672,7 +1699,7 @@ body.photo-lightbox-open{
 .map-place-label{
   font-size:13px;
   font-weight:900;
-  letter-spacing:-0.2px;
+  letter-spacing:-.2px;
   paint-order:stroke fill;
   stroke:#fff;
   stroke-width:5px;
@@ -1695,7 +1722,9 @@ body.photo-lightbox-open{
   align-items:center;
 }
 
-/* update-box 자체 박스를 없애고 두 자식을 grid item처럼 사용 */
+
+/* update-box 자체 박스를 없애고
+   자식 요소를 grid item처럼 사용 */
 .update-box{
   display:contents;
   white-space:normal;
@@ -1727,13 +1756,18 @@ body.photo-lightbox-open{
   text-align:right;
 }
 
+
+/* 화면 폭이 좁아질 경우 */
 @media(max-width:1100px){
+
   .update-box > div:last-child{
     max-width:330px;
   }
 }
 
+
 @media(max-width:800px){
+
   .header-tools{
     grid-template-columns:1fr;
     grid-template-rows:auto auto auto;
