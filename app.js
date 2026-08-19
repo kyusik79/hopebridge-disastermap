@@ -127,8 +127,17 @@ function numberValue(v) {
 function excelDateToText(v) {
   if (v === null || v === undefined || v === "" || v === "-") return "-";
 
+  /*
+    XLSX에서 cellDates:true로 읽은 날짜는 Date 객체가 될 수 있습니다.
+    toISOString()을 쓰면 한국 시간(KST)이 UTC로 변환되면서
+    날짜가 하루 전으로 표시될 수 있으므로 로컬 날짜 값을 직접 사용합니다.
+  */
   if (v instanceof Date && !Number.isNaN(v.getTime())) {
-    return v.toISOString().slice(0, 10);
+    return [
+      v.getFullYear(),
+      String(v.getMonth() + 1).padStart(2, "0"),
+      String(v.getDate()).padStart(2, "0")
+    ].join("-");
   }
 
   if (typeof v === "number") {
@@ -138,7 +147,7 @@ function excelDateToText(v) {
     }
   }
 
-  const s = String(v);
+  const s = String(v).trim();
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) return `${m[1]}-${m[2]}-${m[3]}`;
 
@@ -485,7 +494,10 @@ function resolveCoordinate(obj) {
 function updateHeader() {
   const md = currentData.metadata;
 
-  // 기준일은 엑셀 값을 사용하지 않고 오늘 날짜를 자동 표시
+  /*
+    기준일은 엑셀의 기준일이 아니라
+    대시보드에 접속한 오늘 날짜를 자동 표시합니다.
+  */
   const today = new Date();
 
   const todayText = [
@@ -503,11 +515,44 @@ function updateHeader() {
   document.getElementById("summary-title").textContent =
     `${currentConfig.disaster} 현황`;
 
-  const start = excelDateToText(md["시작일"]);
-  const end = excelDateToText(md["종료일"]);
+  /*
+    재해기간 표시 규칙
+    - 시작일·종료일 모두 있음: 재해기간 YYYY-MM-DD ~ YYYY-MM-DD
+    - 시작일만 있음: 재해기간 YYYY-MM-DD
+    - 종료일만 있음: 재해기간 YYYY-MM-DD
+    - 둘 다 없음: 공란
+    - '진행중' 문구는 사용하지 않음
+  */
+  const startRaw = md["시작일"];
+  const endRaw = md["종료일"];
+
+  const hasStart =
+    startRaw !== null &&
+    startRaw !== undefined &&
+    startRaw !== "" &&
+    startRaw !== "-";
+
+  const hasEnd =
+    endRaw !== null &&
+    endRaw !== undefined &&
+    endRaw !== "" &&
+    endRaw !== "-";
+
+  const start = hasStart ? excelDateToText(startRaw) : "";
+  const end = hasEnd ? excelDateToText(endRaw) : "";
+
+  let periodText = "";
+
+  if (start && end) {
+    periodText = `재해기간 ${start} ~ ${end}`;
+  } else if (start) {
+    periodText = `재해기간 ${start}`;
+  } else if (end) {
+    periodText = `재해기간 ${end}`;
+  }
 
   document.getElementById("period-text").textContent =
-    `재해기간 ${start}${end && end !== "-" ? ` ~ ${end}` : " ~ 진행중"}`;
+    periodText;
 
   document.getElementById("virtual-badge")
     .classList.toggle(
@@ -644,7 +689,7 @@ function buildSummaryCards() {
     return [
       { label: "피해지역", value: count, unit: "개 지역" },
       { label: "최대 순간풍속", value: max(h("최대순간풍속")), unit: "m/s", decimals: 1 },
-      { label: "최대 누적 강수량", value: sum(h("누적 강수량")), unit: "mm", decimals: 1 },
+      { label: "최대 누적 강수량", value: max(h("누적 강수량")), unit: "mm", decimals: 1 },
       { label: "대피인원", value: sum(h("대피인원")), unit: "명" }
     ];
   }
