@@ -17,6 +17,8 @@ let activeMetric = null;
 let width = 900;
 let height = 760;
 let autoZoomEnabled = true;
+let autoZoomOutliers = [];
+let autoZoomMainCluster = [];
 let photos = [];
 
 const fmt = new Intl.NumberFormat("ko-KR");
@@ -24,7 +26,26 @@ const fmt = new Intl.NumberFormat("ko-KR");
 const zoom = d3.zoom()
   .scaleExtent([1, 8])
   .on("zoom", event => {
-    svg.select(".map-root").attr("transform", event.transform);
+    /*
+      지도만 확대하고 버블·숫자·지역명은 화면상 크기를 유지합니다.
+      버블은 실제 위치에서 조금 이동될 수 있으므로 displayX/displayY를 사용합니다.
+    */
+    svg.select(".map-root")
+      .attr("transform", event.transform);
+
+    const k = event.transform.k || 1;
+
+    svg.selectAll(".bubble-point")
+      .attr(
+        "transform",
+        d => `translate(${d.displayX ?? d.x},${d.displayY ?? d.y}) scale(${1 / k})`
+      );
+
+    svg.selectAll(".bubble-label-point")
+      .attr(
+        "transform",
+        d => `translate(${d.displayX ?? d.x},${d.displayY ?? d.y}) scale(${1 / k})`
+      );
   });
 
 svg.call(zoom);
@@ -749,6 +770,9 @@ function getAutoZoomTransform(points) {
     경남·부산처럼 다수 지점이 몰린 군집이 있으면
     그 군집을 중심으로 자동 확대합니다.
   */
+  autoZoomOutliers = [];
+  autoZoomMainCluster = [];
+
   if (!points || points.length < 3) {
     return d3.zoomIdentity;
   }
@@ -802,6 +826,11 @@ function getAutoZoomTransform(points) {
     return d3.zoomIdentity;
   }
 
+  autoZoomMainCluster = mainCluster;
+
+  const mainSet = new Set(mainCluster);
+  autoZoomOutliers = points.filter(p => !mainSet.has(p));
+
   const xs = mainCluster.map(d => d.x);
   const ys = mainCluster.map(d => d.y);
 
@@ -834,6 +863,214 @@ function getAutoZoomTransform(points) {
     .scale(scale);
 }
 
+
+function layoutDisplacedSymbols(points, viewTransform) {
+  /*
+    겹치는 비례원 자동 분산(Displaced Proportional Symbols)
+
+    - 실제 지도 위치(anchor)는 유지
+    - 화면상으로 원들이 겹치면 주변으로 조금 밀어냄
+    - 행정구역 경계를 벗어나도 허용
+    - 원이 실제 위치에서 이동한 경우 얇은 연결선으로 원위치를 표시
+    - 확대 배율을 먼저 적용한 '화면 좌표'에서 충돌을 계산하므로
+      자동확대 상태에서도 원 크기와 간격이 안정적임
+  */
+  if (!points.length) return points;
+
+  const k = viewTransform?.k || 1;
+  const tx = viewTransform?.x || 0;
+  const ty = viewTransform?.y || 0;
+
+  const nodes = points.map((p, index) => {
+    const anchorScreenX = k * p.x + tx;
+    const anchorScreenY = k * p.y + ty;
+
+    return {
+      ...p,
+      __index: index,
+      anchorScreenX,
+      anchorScreenY,
+      sx: anchorScreenX,
+      sy: anchorScreenY,
+      x: anchorScreenX,
+      y: anchorScreenY
+    };
+  });
+
+  /*
+    원 반지름 + 여백으로 충돌 회피.
+    anchor 복원력이 너무 강하면 다시 겹치므로 약하게 설정합니다.
+  */
+  const simulation = d3.forceSimulation(nodes)
+    .alpha(1)
+    .alphaDecay(0.055)
+    .velocityDecay(0.42)
+    .force(
+      "x",
+      d3.forceX(d => d.anchorScreenX).strength(0.10)
+    )
+    .force(
+      "y",
+      d3.forceY(d => d.anchorScreenY).strength(0.10)
+    )
+    .force(
+      "collide",
+      d3.forceCollide(d => d.r + 9)
+        .strength(1)
+        .iterations(3)
+    )
+    .stop();
+
+  for (let i = 0; i < 120; i++) {
+    simulation.tick();
+  }
+
+  return nodes.map(n => {
+    /*
+      과도한 이동은 제한합니다.
+      화면 기준 최대 약 105px까지만 원위치에서 벗어납니다.
+    */
+    let dxScreen = n.x - n.anchorScreenX;
+    let dyScreen = n.y - n.anchorScreenY;
+
+    const distance = Math.hypot(dxScreen, dyScreen);
+    const maxDistance = 105;
+
+    if (distance > maxDistance) {
+      const ratio = maxDistance / distance;
+      dxScreen *= ratio;
+      dyScreen *= ratio;
+    }
+
+    const finalScreenX = n.anchorScreenX + dxScreen;
+    const finalScreenY = n.anchorScreenY + dyScreen;
+
+    return {
+      ...n,
+      anchorX: n.x !== undefined ? n.x : n.anchorX,
+      anchorY: n.y !== undefined ? n.y : n.anchorY,
+      displayX: (finalScreenX - tx) / k,
+      displayY: (finalScreenY - ty) / k,
+      displacementPx: Math.hypot(dxScreen, dyScreen),
+      labelSide: dxScreen < -4 ? "left" : "right"
+    };
+  }).map((n, i) => ({
+    ...n,
+    // 원래 투영 좌표는 points 배열의 값을 다시 확실히 보존
+    anchorX: points[i].x,
+    anchorY: points[i].y,
+    x: points[i].x,
+    y: points[i].y
+  }));
+}
+
+function renderOverviewInset(points) {
+  /*
+    자동확대로 인해 제주 등 원거리 피해지점이 본지도 밖으로 나갈 경우,
+    우측 하단에 전국 미니지도를 표시해 누락처럼 보이지 않게 합니다.
+  */
+  const existing = document.getElementById("map-overview-inset");
+
+  if (!autoZoomEnabled || !autoZoomOutliers.length) {
+    if (existing) existing.remove();
+    return;
+  }
+
+  const wrap = document.getElementById("map-wrap");
+
+  let inset = existing;
+
+  if (!inset) {
+    inset = document.createElement("div");
+    inset.id = "map-overview-inset";
+    inset.className = "map-overview-inset";
+    inset.innerHTML = `
+      <div class="inset-title">
+        <span>전체 피해지역</span>
+        <button type="button" id="inset-national-view">전국보기</button>
+      </div>
+      <svg id="overview-map" aria-label="전체 피해지역 미니지도"></svg>
+      <div id="overview-note" class="overview-note"></div>
+    `;
+    wrap.appendChild(inset);
+
+    inset
+      .querySelector("#inset-national-view")
+      .addEventListener("click", () => {
+        autoZoomEnabled = false;
+
+        svg
+          .transition()
+          .duration(350)
+          .call(
+            zoom.transform,
+            d3.zoomIdentity
+          );
+
+        renderOverviewInset(points);
+      });
+  }
+
+  const miniSvg = d3.select("#overview-map");
+  miniSvg.selectAll("*").remove();
+
+  const miniWidth = 170;
+  const miniHeight = 210;
+
+  miniSvg.attr("viewBox", `0 0 ${miniWidth} ${miniHeight}`);
+
+  const projection = d3
+    .geoMercator()
+    .fitExtent(
+      [[8, 8], [miniWidth - 8, miniHeight - 8]],
+      boundaries
+    );
+
+  const path = d3.geoPath(projection);
+
+  miniSvg
+    .append("g")
+    .selectAll("path")
+    .data(boundaries.features)
+    .join("path")
+    .attr("class", "overview-region")
+    .attr("d", path);
+
+  const pointData = points
+    .filter(p => p.__coord)
+    .map(p => {
+      const [x, y] = projection(p.__coord);
+
+      return {
+        ...p,
+        x,
+        y,
+        isOutlier: autoZoomOutliers.includes(p)
+      };
+    });
+
+  miniSvg
+    .append("g")
+    .selectAll("circle")
+    .data(pointData)
+    .join("circle")
+    .attr("class", d => d.isOutlier ? "overview-point outlier" : "overview-point")
+    .attr("cx", d => d.x)
+    .attr("cy", d => d.y)
+    .attr("r", d => d.isOutlier ? 4.8 : 3.2);
+
+  const names = autoZoomOutliers
+    .map(d => shortLabel(d))
+    .filter(Boolean);
+
+  const note = inset.querySelector("#overview-note");
+
+  note.textContent =
+    names.length
+      ? `확대범위 밖 피해지역: ${names.join(", ")}`
+      : "";
+}
+
 function drawMap() {
   svg.selectAll("*").remove();
 
@@ -850,8 +1087,10 @@ function drawMap() {
 
   const path = d3.geoPath(projection);
 
+  /* 행정구역 경계 */
   root
     .append("g")
+    .attr("class", "region-layer")
     .selectAll("path")
     .data(boundaries.features)
     .join("path")
@@ -861,38 +1100,36 @@ function drawMap() {
   const usable = currentData.records
     .map(r => {
       const v = numberValue(r[activeMetric]);
+
       return {
         ...r,
         __value: v
       };
     })
-    .filter(r => r.__coord && r.__value !== null && r.__value > 0);
+    .filter(
+      r =>
+        r.__coord &&
+        r.__value !== null &&
+        r.__value > 0
+    );
 
   const maxValue =
     d3.max(usable, r => r.__value) || 1;
 
-  /*
-    전국 단위 자료(폭염 등)는 지역 간 거리가 촘촘하므로 최대 원을 작게,
-    일부 지역 집중형 자료(호우 등)는 최대 원을 조금 크게 표시합니다.
-    값 자체는 여전히 원의 '면적'에 비례합니다.
-  */
   const isNationwide = usable.length >= 12;
 
   /*
-    v7: 버블 크기 추가 축소
-    - 전국형 자료: 4~24px
-    - 지역집중형 자료(호우 등): 5~28px
-    값은 계속 원의 '면적'에 비례합니다.
+    확대 여부와 관계없이 화면상 버블 최대크기는 작게 유지합니다.
   */
   const minRadius = isNationwide ? 4 : 5;
-  const maxRadius = isNationwide ? 24 : 28;
+  const maxRadius = isNationwide ? 20 : 24;
 
   const radius = d3
     .scaleSqrt()
     .domain([Math.min(1, maxValue), maxValue])
     .range([minRadius, maxRadius]);
 
-  const points = usable.map(r => {
+  const rawPoints = usable.map(r => {
     const [x, y] = projection(r.__coord);
 
     return {
@@ -903,14 +1140,51 @@ function drawMap() {
     };
   });
 
+  /*
+    먼저 자동확대 범위를 계산한 후 그 화면 좌표에서 원 겹침을 해소합니다.
+  */
+  let viewTransform = d3.zoomIdentity;
+
+  if (autoZoomEnabled) {
+    viewTransform = getAutoZoomTransform(rawPoints);
+  } else {
+    autoZoomOutliers = [];
+    autoZoomMainCluster = [];
+  }
+
+  const points =
+    layoutDisplacedSymbols(rawPoints, viewTransform);
+
+  /*
+    실제 위치와 이동된 원 사이의 연결선.
+    8px 이상 이동했을 때만 표시하여 화면을 복잡하게 만들지 않습니다.
+  */
+  root
+    .append("g")
+    .attr("class", "leader-layer")
+    .selectAll("line")
+    .data(points.filter(d => d.displacementPx >= 8))
+    .join("line")
+    .attr("class", "bubble-leader")
+    .attr("x1", d => d.anchorX)
+    .attr("y1", d => d.anchorY)
+    .attr("x2", d => d.displayX)
+    .attr("y2", d => d.displayY);
+
+  /*
+    원 레이어.
+    지역명 레이어보다 먼저 그려서 어떤 원도 지역명을 덮지 못하게 합니다.
+  */
   const groups = root
     .append("g")
+    .attr("class", "bubble-layer")
     .selectAll("g")
     .data(points)
     .join("g")
+    .attr("class", "bubble-point")
     .attr(
       "transform",
-      d => `translate(${d.x},${d.y})`
+      d => `translate(${d.displayX},${d.displayY})`
     )
     .on("click", (event, d) => {
       event.stopPropagation();
@@ -926,44 +1200,66 @@ function drawMap() {
     .filter(d => d.r >= 12)
     .append("text")
     .attr("class", "bubble-value")
-    .attr("y", 6)
+    .attr("y", 4)
     .style(
       "font-size",
       d => {
         const dense = usable.length >= 12;
-        if (dense) return d.r >= 20 ? "12px" : "8px";
-        return d.r >= 22 ? "13px" : "9px";
+        if (dense) return d.r >= 18 ? "11px" : "8px";
+        return d.r >= 20 ? "12px" : "8px";
       }
     )
     .text(
       d => formatMetricCell(d.__value, activeMetric)
     );
 
-  groups
+  /*
+    지역명 전용 최상단 레이어.
+    모든 원을 먼저 그린 뒤 지역명을 마지막에 그리므로
+    다른 원이 지역명 위를 덮는 현상이 사라집니다.
+  */
+  const labels = root
+    .append("g")
+    .attr("class", "bubble-label-layer")
+    .selectAll("g")
+    .data(points)
+    .join("g")
+    .attr("class", "bubble-label-point")
+    .attr(
+      "transform",
+      d => `translate(${d.displayX},${d.displayY})`
+    )
+    .style("pointer-events", "none");
+
+  labels
     .append("text")
     .attr("class", "map-place-label")
-    .attr("x", d => d.r + 8)
+    .attr(
+      "x",
+      d => d.labelSide === "left"
+        ? -(d.r + 7)
+        : d.r + 7
+    )
     .attr("y", 4)
+    .attr(
+      "text-anchor",
+      d => d.labelSide === "left"
+        ? "end"
+        : "start"
+    )
     .text(d => shortLabel(d));
 
   /*
-    집중권역이 있으면 자동 확대.
-    전국보기 선택 후에는 사용자가 재해/지표를 바꿀 때까지
-    자동확대를 다시 적용하지 않습니다.
+    확대/전국보기 적용.
   */
-  if (autoZoomEnabled) {
-    const autoTransform = getAutoZoomTransform(points);
+  svg.call(
+    zoom.transform,
+    autoZoomEnabled
+      ? viewTransform
+      : d3.zoomIdentity
+  );
 
-    svg.call(
-      zoom.transform,
-      autoTransform
-    );
-  } else {
-    svg.call(
-      zoom.transform,
-      d3.zoomIdentity
-    );
-  }
+  renderOverviewInset(rawPoints);
 }
 
 function selectRegion(record) {
@@ -1115,6 +1411,8 @@ document.getElementById("reset-view")
   .addEventListener("click", () => {
     // 전국보기는 명시적으로 자동확대를 끄고 전체지도 유지
     autoZoomEnabled = false;
+    autoZoomOutliers = [];
+    autoZoomMainCluster = [];
 
     svg
       .transition()
@@ -1123,6 +1421,8 @@ document.getElementById("reset-view")
         zoom.transform,
         d3.zoomIdentity
       );
+
+    document.getElementById("map-overview-inset")?.remove();
   });
 
 document.getElementById("clear-selection")
