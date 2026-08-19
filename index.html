@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>재난 및 구호 현장지도</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-symbol"></div>
+      <div class="brand-copy">
+        <strong>희망브리지</strong>
+        <span>전국재해구호협회</span>
+      </div>
+    </div>
+
+    <div class="title-wrap">
+      <h1>재난 및 구호 현장지도</h1>
+      <span>재해 현황과 구호 활동을 한눈에</span>
+    </div>
+
+    <div class="header-tools">
+      <label class="disaster-select-wrap">
+        <span>재해 선택</span>
+        <select id="disaster-select"></select>
+      </label>
+
+      <div class="update-box">
+        <div>기준일 <strong id="asof-text">-</strong></div>
+        <div id="data-type-text">자료구분 -</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="dashboard">
+
+    <section class="map-card">
+      <div class="map-actions">
+        <div id="metric-buttons" class="metric-buttons"></div>
+        <button id="reset-view" class="map-button">전국보기</button>
+      </div>
+
+      <div id="map-wrap">
+        <svg id="map" aria-label="대한민국 재난 및 구호 현황 지도"></svg>
+
+        <div id="map-loading" class="map-state">
+          <div class="spinner"></div>
+          <p>재난 데이터를 불러오고 있습니다.</p>
+        </div>
+
+        <div id="map-error" class="map-state error hidden"></div>
+      </div>
+
+      <div class="legend">
+        <h3>
+          원 크기
+          <span id="legend-metric">-</span>
+        </h3>
+        <div><i class="lg"></i><span>상대적으로 큼</span></div>
+        <div><i class="md"></i><span>중간</span></div>
+        <div><i class="sm"></i><span>작음</span></div>
+        <p>※ 원의 면적은 선택 지표의 규모에 비례합니다.</p>
+      </div>
+    </section>
+
+    <aside class="right-card">
+
+      <section class="summary-section">
+        <div class="section-kicker">재해 현황</div>
+
+        <div class="heading-row">
+          <div>
+            <h2 id="summary-title">재해 현황</h2>
+            <p id="period-text" class="period-text"></p>
+          </div>
+
+          <span id="virtual-badge" class="virtual-badge hidden">가상데이터</span>
+        </div>
+
+        <div id="summary-grid" class="summary-grid"></div>
+      </section>
+
+      <section class="middle-grid">
+        <div class="ranking-panel">
+          <div class="section-kicker">지역별 현황</div>
+          <h2 id="ranking-title">TOP 5</h2>
+
+          <div class="table-frame">
+            <table>
+              <thead>
+                <tr id="ranking-head"></tr>
+              </thead>
+              <tbody id="ranking-body"></tbody>
+            </table>
+          </div>
+
+          <p class="tiny-note">※ 현재 선택한 지도 지표 기준 상위 5개 지역입니다.</p>
+        </div>
+
+        <div class="detail-panel">
+          <div class="section-kicker">선택 지역 상세</div>
+          <h2 id="detail-title">지역을 선택해 주세요</h2>
+
+          <div id="detail-empty" class="detail-empty">
+            지도 원 또는 TOP 5 표를 클릭하면 해당 지역의 세부 현황을 확인할 수 있습니다.
+          </div>
+
+          <div id="detail-content" class="detail-box hidden"></div>
+
+          <button id="clear-selection" class="clear-btn hidden">선택 해제</button>
+        </div>
+      </section>
+
+      <section class="photos-section">
+        <div class="row-heading">
+          <div>
+            <div class="section-kicker">현장 기록</div>
+            <h2>현장 사진</h2>
+          </div>
+          <span id="photos-count">0장</span>
+        </div>
+
+        <div id="photo-grid" class="photo-grid"></div>
+
+        <div id="photo-empty" class="photo-empty">
+          현장사진이 등록되면 이곳에 표시됩니다.
+        </div>
+      </section>
+
+      <section class="support-section">
+        <div class="section-kicker">희망브리지</div>
+        <h2>구호지원 현황</h2>
+
+        <div id="support-grid" class="support-grid"></div>
+
+        <p class="tiny-note">
+          ※ 해당 재해 시트의 구호현황을 표시합니다. 지역별 배분량이 아닌 전체 지원 총량입니다.
+        </p>
+      </section>
+
+      <section class="source-note">
+        <strong>데이터 원본</strong>
+        <span>data/disaster_map_data.xlsx</span>
+      </section>
+
+    </aside>
+  </main>
+
+
+  <!-- 우측 하단 숨김 업로드 진입점: 1.2초 안에 3회 클릭 -->
+  <button id="upload-secret-trigger"
+          class="upload-secret-trigger"
+          type="button"
+          aria-label="보조 기능"></button>
+
+  <div id="upload-modal" class="upload-modal hidden" aria-hidden="true">
+    <div class="upload-dialog">
+      <div class="upload-dialog-head">
+        <div>
+          <div class="section-kicker">내부 운영</div>
+          <h2>자료 업로드</h2>
+        </div>
+        <button id="upload-close" class="upload-close" type="button">×</button>
+      </div>
+
+      <div class="upload-field">
+        <label for="upload-pin">PIN</label>
+        <input id="upload-pin" type="password" inputmode="numeric"
+               autocomplete="off" placeholder="업로드 PIN" />
+      </div>
+
+      <div class="upload-field">
+        <label for="upload-disaster">재해구분</label>
+        <select id="upload-disaster"></select>
+      </div>
+
+      <div class="upload-field">
+        <label for="upload-location">사진 지역명 <span>(사진 업로드 시)</span></label>
+        <input id="upload-location" type="text"
+               placeholder="예: 거제시, 가덕도, 서울" />
+      </div>
+
+      <div class="upload-field">
+        <label for="upload-excel">Excel 데이터 <span>(선택)</span></label>
+        <input id="upload-excel" type="file"
+               accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+        <p>표준 파일 전체를 교체합니다. 파일명은 자동으로 disaster_map_data.xlsx로 저장됩니다.</p>
+      </div>
+
+      <div class="upload-field">
+        <label for="upload-photos">현장사진 <span>(선택·여러 장 가능)</span></label>
+        <input id="upload-photos" type="file"
+               accept="image/jpeg,image/png,image/webp" multiple />
+        <p>사진은 업로드 전에 브라우저에서 최대 1920px JPEG로 축소됩니다.</p>
+      </div>
+
+      <div class="upload-field">
+        <label for="upload-caption">사진 설명 <span>(선택)</span></label>
+        <input id="upload-caption" type="text"
+               placeholder="예: 침수 주택 및 도로 현장" />
+      </div>
+
+      <div id="upload-status" class="upload-status"></div>
+
+      <button id="upload-submit" class="upload-submit" type="button">
+        업로드 및 반영
+      </button>
+
+      <p class="upload-help">
+        업로드 완료 후 GitHub 커밋이 생성되며 Render가 자동 재배포합니다.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    window.UPLOAD_API_URL = "https://hopebridge-disastermap-upload.onrender.com";
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

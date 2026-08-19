@@ -1,0 +1,64 @@
+재난 및 구호 현장지도 v5 - 숨김 업로드 기능
+
+[변경 파일]
+- index.html 교체
+- style.css 교체
+- app.js 교체
+- upload-api/ 폴더 신규 추가
+- data/disaster_map_data.xlsx 유지
+
+[숨김 진입]
+우측 하단의 거의 보이지 않는 작은 점을 1.2초 안에 3회 클릭하면 업로드 패널이 열립니다.
+
+[업로드 기능]
+- PIN 입력
+- 재해 선택
+- Excel 전체파일 교체 가능
+- 현장사진 최대 20장
+- 사진은 브라우저에서 최대 1920px JPEG로 축소
+- 사진 지역명과 설명 입력
+- GitHub에 자동 커밋 -> 기존 Static Site의 Render 자동 배포
+
+[중요]
+Static Site만으로는 업로드 파일을 영구 저장할 수 없습니다.
+따라서 같은 GitHub 저장소의 upload-api 폴더를 Render Web Service로 한 번만 생성합니다.
+
+[Render Web Service 설정]
+Root Directory: upload-api
+Build Command: npm install
+Start Command: npm start
+
+Environment Variables:
+UPLOAD_PIN=원하는 4~8자리 PIN
+GITHUB_TOKEN=GitHub fine-grained PAT
+GITHUB_OWNER=kyusik79
+GITHUB_REPO=hopebridge-disastermap
+GITHUB_BRANCH=main
+ALLOWED_ORIGIN=https://hopebridge-disastermap.onrender.com
+
+Web Service 이름은:
+hopebridge-disastermap-upload
+
+그러면 기본 주소가 보통:
+https://hopebridge-disastermap-upload.onrender.com
+
+index.html의 window.UPLOAD_API_URL 값이 이 주소와 맞아야 합니다.
+
+[GitHub Token 권한]
+fine-grained personal access token 생성 시 해당 repository만 선택하고
+Repository permissions > Contents: Read and write
+권한만 부여하면 됩니다.
+
+[사진 저장 구조]
+images/재해구분/지역명/YYYYMMDD_번호_랜덤.jpg
+
+[data/photos.csv]
+새 업로드부터 다음 구조로 자동 관리:
+disaster,sido,sgg,file,date,caption,photographer
+
+기존 photos.csv가 예전 구조라면 API가 첫 사진 업로드 때 자동 변환합니다.
+
+[보안]
+숨김 버튼은 보안수단이 아닙니다.
+실제 업로드 권한은 서버의 UPLOAD_PIN과 GitHub Token이 통제합니다.
+GitHub Token은 절대 index.html/app.js에 넣지 않습니다.
