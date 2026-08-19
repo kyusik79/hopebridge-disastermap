@@ -1404,3 +1404,84 @@ body.photo-lightbox-open{
   stroke-width:5px;
   stroke-linejoin:round;
 }
+
+
+/* =========================================================
+   v29: 상단 메타정보 2줄 정렬
+   1줄: 재해 선택 | 기준일
+   2줄: 자료출처
+========================================================= */
+
+.header-tools{
+  display:grid;
+  grid-template-columns:auto auto;
+  grid-template-rows:auto auto;
+  column-gap:14px;
+  row-gap:4px;
+  align-items:center;
+}
+
+/* update-box 자체 박스를 없애고 두 자식을 grid item처럼 사용 */
+.update-box{
+  display:contents;
+  white-space:normal;
+  text-align:left;
+  font-size:12px;
+  color:#616975;
+  line-height:1.45;
+}
+
+.disaster-select-wrap{
+  grid-column:1;
+  grid-row:1;
+}
+
+.update-box > div:first-child{
+  grid-column:2;
+  grid-row:1;
+  align-self:center;
+  white-space:nowrap;
+}
+
+.update-box > div:last-child{
+  grid-column:1 / 3;
+  grid-row:2;
+  justify-self:end;
+  max-width:420px;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  text-align:right;
+}
+
+/* 화면 폭이 좁아지면 출처는 자연스럽게 한 번 더 줄바꿈 */
+@media(max-width:1100px){
+  .update-box > div:last-child{
+    max-width:330px;
+  }
+}
+
+@media(max-width:800px){
+  .header-tools{
+    grid-template-columns:1fr;
+    grid-template-rows:auto auto auto;
+    row-gap:5px;
+  }
+
+  .disaster-select-wrap{
+    grid-column:1;
+    grid-row:1;
+  }
+
+  .update-box > div:first-child{
+    grid-column:1;
+    grid-row:2;
+  }
+
+  .update-box > div:last-child{
+    grid-column:1;
+    grid-row:3;
+    justify-self:start;
+    max-width:100%;
+    text-align:left;
+  }
+}
