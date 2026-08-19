@@ -625,7 +625,7 @@ function buildSummaryCards() {
   if (d === "호우") {
     return [
       { label: "피해·관측지역", value: count, unit: "개 지역" },
-      { label: "최대 강수량", value: max(h("누적 강수량")), unit: "mm", decimals: 1 },
+      { label: "최대 누적 강수량", value: max(h("누적 강수량")), unit: "mm", decimals: 1 },
       { label: "사망자", value: sum(h("사망자")), unit: "명" },
       { label: "부상자", value: sum(h("부상자")), unit: "명" }
     ];
