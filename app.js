@@ -1007,6 +1007,12 @@ function renderOverviewInset(points) {
             d3.zoomIdentity
           );
 
+        /*
+          미니지도의 전국보기 역시 지역 선택을 해제하고
+          현재 재해의 전체 사진을 표시합니다.
+        */
+        clearSelection(true);
+
         renderOverviewInset(points);
       });
   }
@@ -1650,6 +1656,12 @@ document.getElementById("reset-view")
       );
 
     document.getElementById("map-overview-inset")?.remove();
+
+    /*
+      전국보기 = 지역 선택 해제
+      따라서 현재 재해에 등록된 모든 현장사진을 다시 표시합니다.
+    */
+    clearSelection(true);
   });
 
 document.getElementById("clear-selection")
@@ -1870,5 +1882,154 @@ async function optimizePhoto(file) {
   return blob;
 }
 
+
+
+/* =========================================================
+   v19: 업로드 패널 사진 목록/삭제
+========================================================= */
+
+const photoManageRefresh =
+  document.getElementById("photo-manage-refresh");
+
+const photoManageList =
+  document.getElementById("photo-manage-list");
+
+photoManageRefresh?.addEventListener("click", () => {
+  renderPhotoManageList();
+});
+
+uploadDisaster?.addEventListener("change", () => {
+  renderPhotoManageList();
+});
+
+function renderPhotoManageList() {
+  if (!photoManageList) return;
+
+  const disaster =
+    String(uploadDisaster?.value || currentConfig?.disaster || "").trim();
+
+  const arr = photos
+    .filter(p => {
+      const pDisaster = String(p.disaster || "").trim();
+      return !pDisaster || pDisaster === disaster;
+    })
+    .sort((a, b) =>
+      String(b.date || "").localeCompare(String(a.date || ""))
+    );
+
+  photoManageList.innerHTML = "";
+
+  if (!arr.length) {
+    photoManageList.innerHTML =
+      `<div class="photo-manage-empty">등록된 사진이 없습니다.</div>`;
+    return;
+  }
+
+  arr.forEach(p => {
+    const item = document.createElement("div");
+    item.className = "photo-manage-item";
+
+    const location =
+      String(p.sgg || p.sido || "").trim();
+
+    const filePath =
+      String(p.file || "").trim();
+
+    item.innerHTML = `
+      <img src="${filePath}" alt="현장사진 미리보기">
+      <div class="photo-manage-meta">
+        <b>${location || "지역 미입력"}</b>
+        <span>${p.caption || filePath}</span>
+      </div>
+      <button
+        type="button"
+        class="photo-delete-btn"
+        data-file="${filePath}"
+      >
+        삭제
+      </button>
+    `;
+
+    const button =
+      item.querySelector(".photo-delete-btn");
+
+    button.addEventListener("click", async () => {
+      await deleteManagedPhoto(p, button);
+    });
+
+    photoManageList.appendChild(item);
+  });
+}
+
+async function deleteManagedPhoto(photo, button) {
+  const apiBase =
+    String(window.UPLOAD_API_URL || "").replace(/\/$/, "");
+
+  const pin =
+    document.getElementById("upload-pin").value.trim();
+
+  if (!apiBase) {
+    return setUploadError("업로드 API 주소가 설정되지 않았습니다.");
+  }
+
+  if (!pin) {
+    return setUploadError("사진 삭제 전 PIN을 입력해 주세요.");
+  }
+
+  const location =
+    String(photo.sgg || photo.sido || "").trim();
+
+  const ok = window.confirm(
+    `${location || "선택 사진"}을 삭제할까요?\n삭제 후 복구하려면 GitHub 이력이 필요합니다.`
+  );
+
+  if (!ok) return;
+
+  try {
+    button.disabled = true;
+
+    uploadStatus.className = "upload-status";
+    uploadStatus.textContent = "사진을 삭제하고 있습니다...";
+
+    const response = await fetch(`${apiBase}/delete-photo`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        pin,
+        file: photo.file
+      })
+    });
+
+    const result =
+      await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(
+        result.error || `삭제 실패 (${response.status})`
+      );
+    }
+
+    /*
+      브라우저 메모리에서도 즉시 제거하여
+      Render 재배포 전이라도 관리창/사진목록에 반영합니다.
+    */
+    photos = photos.filter(
+      p => String(p.file || "") !== String(photo.file || "")
+    );
+
+    uploadStatus.className = "upload-status ok";
+    uploadStatus.textContent =
+      "사진 삭제가 완료되었습니다. Render 자동 재배포 후 공개화면에도 반영됩니다.";
+
+    renderPhotoManageList();
+    renderAllPhotos();
+
+  } catch (error) {
+    setUploadError(error.message || "사진 삭제 중 오류가 발생했습니다.");
+    button.disabled = false;
+  }
+}
 
 init();
