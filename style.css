@@ -1485,3 +1485,9 @@ body.photo-lightbox-open{
     text-align:left;
   }
 }
+
+.brand-logo {
+  width: 170px;
+  height: auto;
+  display: block;
+}
