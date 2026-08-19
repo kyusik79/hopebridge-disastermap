@@ -1378,3 +1378,17 @@ body.photo-lightbox-open{
   stroke-width:2.4;
   filter:brightness(.94);
 }
+
+
+/* v25: 완만한 색상 차등 */
+.legend i.lg{
+  background:#dc2626;
+}
+
+.legend i.md{
+  background:#ef4444;
+}
+
+.legend i.sm{
+  background:#f87171;
+}
