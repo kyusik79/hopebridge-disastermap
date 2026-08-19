@@ -774,8 +774,15 @@ function drawMap() {
     값 자체는 여전히 원의 '면적'에 비례합니다.
   */
   const isNationwide = usable.length >= 12;
-  const minRadius = isNationwide ? 5 : 7;
-  const maxRadius = isNationwide ? 34 : 44;
+
+  /*
+    v7: 버블 크기 추가 축소
+    - 전국형 자료: 4~24px
+    - 지역집중형 자료(호우 등): 5~28px
+    값은 계속 원의 '면적'에 비례합니다.
+  */
+  const minRadius = isNationwide ? 4 : 5;
+  const maxRadius = isNationwide ? 24 : 28;
 
   const radius = d3
     .scaleSqrt()
@@ -821,8 +828,8 @@ function drawMap() {
       "font-size",
       d => {
         const dense = usable.length >= 12;
-        if (dense) return d.r >= 24 ? "14px" : "9px";
-        return d.r >= 25 ? "17px" : "10px";
+        if (dense) return d.r >= 20 ? "12px" : "8px";
+        return d.r >= 22 ? "13px" : "9px";
       }
     )
     .text(
