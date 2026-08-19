@@ -26,6 +26,8 @@ if (!UPLOAD_PIN || !GITHUB_TOKEN) {
   console.warn("WARNING: UPLOAD_PIN 또는 GITHUB_TOKEN이 설정되지 않았습니다.");
 }
 
+app.use(express.json({ limit: "1mb" }));
+
 app.use(cors({
   origin(origin, callback) {
     if (!origin || origin === ALLOWED_ORIGIN) {
@@ -144,6 +146,55 @@ app.post(
   }
 );
 
+app.post("/delete-photo", async (req, res) => {
+  try {
+    if (!safePinCompare(req.body.pin || "", UPLOAD_PIN || "")) {
+      return res.status(401).json({
+        error: "PIN이 올바르지 않습니다."
+      });
+    }
+
+    const rawFile = String(req.body.file || "").trim();
+
+    if (!rawFile) {
+      return res.status(400).json({
+        error: "삭제할 사진 경로가 없습니다."
+      });
+    }
+
+    /*
+      photos.csv에는 /images/... 형식으로 저장되므로
+      GitHub API용 경로에서는 앞의 /를 제거합니다.
+    */
+    const repoPath = rawFile.replace(/^\/+/, "");
+
+    if (!repoPath.startsWith("images/")) {
+      return res.status(400).json({
+        error: "images 폴더의 사진만 삭제할 수 있습니다."
+      });
+    }
+
+    await deleteGitHubFile(
+      repoPath,
+      `Delete field photo: ${repoPath}`
+    );
+
+    await removePhotoFromCsv(rawFile);
+
+    return res.json({
+      ok: true
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      error: error.message || "사진 삭제 중 오류가 발생했습니다."
+    });
+  }
+});
+
+
 function safePinCompare(a, b) {
   const aa = Buffer.from(String(a));
   const bb = Buffer.from(String(b));
@@ -228,6 +279,93 @@ async function putGitHubFile(path, buffer, message) {
 
   return await response.json();
 }
+
+async function deleteGitHubFile(path, message) {
+  const existing = await getExistingFile(path);
+
+  if (!existing?.sha) {
+    throw new Error(`GitHub에서 사진을 찾지 못했습니다: ${path}`);
+  }
+
+  const response = await fetch(contentUrl(path), {
+    method: "DELETE",
+    headers: {
+      ...githubHeaders(),
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      message,
+      sha: existing.sha,
+      branch: GITHUB_BRANCH
+    })
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+
+    throw new Error(
+      `GitHub 사진 삭제 실패 (${response.status}) ${detail.slice(0, 300)}`
+    );
+  }
+}
+
+async function removePhotoFromCsv(filePath) {
+  const path = "data/photos.csv";
+  const existing = await getExistingFile(path);
+
+  if (!existing?.content) {
+    return;
+  }
+
+  const current = Buffer
+    .from(existing.content.replace(/\n/g, ""), "base64")
+    .toString("utf8")
+    .replace(/^\uFEFF/, "");
+
+  const lines = current
+    .trim()
+    .split(/\r?\n/);
+
+  if (lines.length <= 1) {
+    return;
+  }
+
+  const header = parseCsvLine(lines[0]);
+  const fileIndex = header.findIndex(
+    h => String(h).trim() === "file"
+  );
+
+  if (fileIndex < 0) {
+    throw new Error("photos.csv에 file 열이 없습니다.");
+  }
+
+  const kept = [lines[0]];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCsvLine(lines[i]);
+
+    if (
+      String(cols[fileIndex] || "").trim()
+      === String(filePath || "").trim()
+    ) {
+      continue;
+    }
+
+    kept.push(lines[i]);
+  }
+
+  const output = Buffer.from(
+    "\uFEFF" + kept.join("\n") + "\n",
+    "utf8"
+  );
+
+  await putGitHubFile(
+    path,
+    output,
+    "Remove deleted field photo from registry"
+  );
+}
+
 
 async function appendPhotosCsv(rows) {
   const path = "data/photos.csv";
