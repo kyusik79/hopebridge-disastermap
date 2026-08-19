@@ -860,3 +860,38 @@ tbody td:last-child{color:var(--red-dark);font-weight:850}
 .bubble-point:hover .bubble{
   fill:#d92d20;
 }
+
+
+/* v16: 전체 사진 보기 시 지역/설명 표시 */
+.photo-card{
+  position:relative;
+}
+
+.photo-meta{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  display:flex;
+  flex-direction:column;
+  gap:1px;
+  padding:18px 7px 6px;
+  background:linear-gradient(to top, rgba(0,0,0,.62), rgba(0,0,0,0));
+  color:#fff;
+  pointer-events:none;
+}
+
+.photo-meta b{
+  font-size:10px;
+  font-weight:800;
+}
+
+.photo-meta em{
+  font-size:9px;
+  font-style:normal;
+  line-height:1.25;
+  opacity:.92;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
