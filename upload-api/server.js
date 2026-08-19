@@ -146,6 +146,75 @@ app.post(
   }
 );
 
+
+app.get("/photos", async (req, res) => {
+  try {
+    const disaster =
+      String(req.query.disaster || "").trim();
+
+    const existing =
+      await getExistingFile("data/photos.csv");
+
+    if (!existing?.content) {
+      return res.json({ photos: [] });
+    }
+
+    const current = Buffer
+      .from(existing.content.replace(/\n/g, ""), "base64")
+      .toString("utf8")
+      .replace(/^\uFEFF/, "");
+
+    const lines = current
+      .trim()
+      .split(/\r?\n/);
+
+    if (lines.length <= 1) {
+      return res.json({ photos: [] });
+    }
+
+    const header = parseCsvLine(lines[0])
+      .map(h => String(h).trim());
+
+    const rows = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseCsvLine(lines[i]);
+
+      if (!cols.some(Boolean)) continue;
+
+      const row = {};
+
+      header.forEach((h, index) => {
+        row[h] = cols[index] || "";
+      });
+
+      const rowDisaster =
+        String(row.disaster || "").trim();
+
+      if (
+        disaster &&
+        rowDisaster &&
+        rowDisaster !== disaster
+      ) {
+        continue;
+      }
+
+      rows.push(row);
+    }
+
+    return res.json({
+      photos: rows
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      error: error.message || "사진 목록 조회 중 오류가 발생했습니다."
+    });
+  }
+});
+
 app.post("/delete-photo", async (req, res) => {
   try {
     if (!safePinCompare(req.body.pin || "", UPLOAD_PIN || "")) {
