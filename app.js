@@ -488,8 +488,8 @@ function updateHeader() {
   document.getElementById("asof-text").textContent =
     excelDateToText(md["기준일"]);
 
-  document.getElementById("data-type-text").textContent =
-    `자료구분 ${currentConfig.dataType || "-"}`;
+document.getElementById("data-type-text").textContent =
+  "자료출처 : 행안부「안전관리일일상황」, 희망브리지「구호현황」";
 
   document.getElementById("summary-title").textContent =
     `${currentConfig.disaster} 현황`;
