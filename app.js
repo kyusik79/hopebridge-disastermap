@@ -1133,10 +1133,10 @@ function drawMap() {
   const maxRadius = isNationwide ? 40 : 48;
 
   /*
-    v24: 원 크기 편차 강화
-    기존 sqrt 스케일보다 큰 값은 더 크게, 작은 값은 더 작게 보이도록
-    power scale(지수 0.78)을 사용합니다.
-    단, 값의 순서와 상대적 크기 관계는 그대로 유지합니다.
+    v25: 원래 비례감에서 '아주 살짝'만 편차 강화
+    - 기존 sqrt(0.50)에 가까운 0.56 지수 사용
+    - 최소값을 minRadius에 강제로 붙이지 않고 1부터 maxValue까지 계산
+      → 중간값들이 지나치게 작아지는 현상 방지
   */
   const positiveValues = usable
     .map(r => r.__value)
@@ -1147,13 +1147,14 @@ function drawMap() {
 
   const radius = d3
     .scalePow()
-    .exponent(0.78)
-    .domain([minPositive, maxValue])
-    .range([minRadius, maxRadius]);
+    .exponent(0.56)
+    .domain([1, maxValue])
+    .range([minRadius, maxRadius])
+    .clamp(true);
 
   /*
-    값이 클수록 더 진한 빨강으로 표시.
-    연한 빨강 → 중간 빨강 → 진한 빨강의 연속 스케일입니다.
+    색상도 차이를 강하게 벌리지 않고
+    연한 빨강 → 기본 빨강 → 조금 진한 빨강 정도로만 변화
   */
   const bubbleColor = d3
     .scaleLinear()
@@ -1163,9 +1164,9 @@ function drawMap() {
       maxValue
     ])
     .range([
-      "#fca5a5",
+      "#f87171",
       "#ef4444",
-      "#b91c1c"
+      "#dc2626"
     ])
     .clamp(true);
 
