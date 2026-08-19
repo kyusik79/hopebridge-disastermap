@@ -766,96 +766,92 @@ function resize() {
 
 function getAutoZoomTransform(points) {
   /*
-    v9: 주요 피해권역 중심 자동 확대
+    v28: '모든 피해지역' 기준 자동 범위 맞춤
 
-    원거리 지점(예: 제주 성산)이 하나 포함되어 있어도
-    경남·부산처럼 다수 지점이 몰린 군집이 있으면
-    그 군집을 중심으로 자동 확대합니다.
+    핵심 원칙
+    - 현재 선택 재해에서 값이 있는 모든 지점을 본지도 안에 포함
+    - 피해지역이 좁게 모이면 해당 권역을 크게 확대
+    - 피해지역이 여러 시도에 퍼지면 필요한 만큼 자동 축소
+    - 전국에 넓게 퍼지면 사실상 전국보기 수준으로 표시
+    - 특정 지역을 예외 처리하지 않고 데이터 자체가 지도 범위를 결정
   */
   autoZoomOutliers = [];
-  autoZoomMainCluster = [];
+  autoZoomMainCluster = points ? [...points] : [];
 
-  if (!points || points.length < 3) {
+  if (!points || points.length === 0) {
     return d3.zoomIdentity;
   }
 
-  // 전국형 자료는 자동 확대하지 않음
-  if (points.length >= 12) {
-    return d3.zoomIdentity;
+  /*
+    한 지점만 있어도 너무 과도하게 확대되지 않도록 별도 처리
+  */
+  if (points.length === 1) {
+    const p = points[0];
+    const scale = 2.2;
+
+    return d3.zoomIdentity
+      .translate(
+        width / 2 - scale * p.x,
+        height / 2 - scale * p.y
+      )
+      .scale(scale);
   }
 
-  // 기본 전국지도 좌표상에서 가까운 지점끼리 묶는 거리 기준
-  const thresholdPx = Math.max(90, Math.min(width, height) * 0.16);
-
-  const visited = new Set();
-  const clusters = [];
-
-  for (let i = 0; i < points.length; i++) {
-    if (visited.has(i)) continue;
-
-    const queue = [i];
-    const cluster = [];
-    visited.add(i);
-
-    while (queue.length) {
-      const idx = queue.shift();
-      cluster.push(points[idx]);
-
-      for (let j = 0; j < points.length; j++) {
-        if (visited.has(j)) continue;
-
-        const dx = points[idx].x - points[j].x;
-        const dy = points[idx].y - points[j].y;
-        const distance = Math.hypot(dx, dy);
-
-        if (distance <= thresholdPx) {
-          visited.add(j);
-          queue.push(j);
-        }
-      }
-    }
-
-    clusters.push(cluster);
-  }
-
-  clusters.sort((a, b) => b.length - a.length);
-
-  const mainCluster = clusters[0] || [];
-  const minimumClusterSize = Math.max(3, Math.ceil(points.length * 0.5));
-
-  // 과반수에 가까운 집중권역이 없으면 전국보기 유지
-  if (mainCluster.length < minimumClusterSize) {
-    return d3.zoomIdentity;
-  }
-
-  autoZoomMainCluster = mainCluster;
-
-  const mainSet = new Set(mainCluster);
-  autoZoomOutliers = points.filter(p => !mainSet.has(p));
-
-  const xs = mainCluster.map(d => d.x);
-  const ys = mainCluster.map(d => d.y);
+  const xs = points.map(d => d.x);
+  const ys = points.map(d => d.y);
 
   const minX = Math.min(...xs);
   const maxX = Math.max(...xs);
   const minY = Math.min(...ys);
   const maxY = Math.max(...ys);
 
-  // 원과 지역명까지 잘리지 않도록 여백
-  const pad = 85;
-  const boxWidth = Math.max(90, (maxX - minX) + pad * 2);
-  const boxHeight = Math.max(90, (maxY - minY) + pad * 2);
+  /*
+    원과 지역명까지 잘리지 않도록 화면 여백 확보.
+    원 크기와 지역명 이동을 감안해 고정 여백 + 범위 비례 여백을 사용합니다.
+  */
+  const spanX = Math.max(1, maxX - minX);
+  const spanY = Math.max(1, maxY - minY);
 
-  const centerX = (minX + maxX) / 2;
-  const centerY = (minY + maxY) / 2;
+  const padX = Math.max(95, spanX * 0.18);
+  const padY = Math.max(105, spanY * 0.18);
 
+  const boxWidth =
+    Math.max(150, spanX + padX * 2);
+
+  const boxHeight =
+    Math.max(170, spanY + padY * 2);
+
+  const centerX =
+    (minX + maxX) / 2;
+
+  const centerY =
+    (minY + maxY) / 2;
+
+  /*
+    화면의 약 84% 영역 안에 모든 피해지점이 들어오도록 계산합니다.
+  */
   let scale = Math.min(
-    width * 0.74 / boxWidth,
-    height * 0.74 / boxHeight
+    width * 0.84 / boxWidth,
+    height * 0.84 / boxHeight
   );
 
-  // 확대한 느낌이 분명하도록 최소 배율 설정
-  scale = Math.max(1.6, Math.min(scale, 3.8));
+  /*
+    지나친 확대/축소 방지
+    - 최소 1배: 전국보다 더 축소하지 않음
+    - 최대 3.2배: 한 권역 집중 시에도 지나친 확대 방지
+  */
+  scale = Math.max(
+    1,
+    Math.min(scale, 3.2)
+  );
+
+  /*
+    계산 결과가 1.08배 미만이면 체감상 전국보기와 거의 같으므로
+    완전한 전국보기(identity)로 정리합니다.
+  */
+  if (scale < 1.08) {
+    return d3.zoomIdentity;
+  }
 
   return d3.zoomIdentity
     .translate(
