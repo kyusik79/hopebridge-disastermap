@@ -1895,27 +1895,60 @@ const photoManageList =
   document.getElementById("photo-manage-list");
 
 photoManageRefresh?.addEventListener("click", () => {
-  renderPhotoManageList();
+  loadPhotoManageList();
 });
 
 uploadDisaster?.addEventListener("change", () => {
-  renderPhotoManageList();
+  loadPhotoManageList();
 });
 
-function renderPhotoManageList() {
+/*
+  관리 목록은 브라우저가 처음 읽은 photos.csv가 아니라
+  업로드 API가 GitHub의 최신 photos.csv를 직접 읽어 반환합니다.
+  따라서 Render 정적사이트 재배포 전에도 정확한 최신 파일경로를 사용합니다.
+*/
+async function loadPhotoManageList() {
   if (!photoManageList) return;
+
+  const apiBase =
+    String(window.UPLOAD_API_URL || "").replace(/\/$/, "");
 
   const disaster =
     String(uploadDisaster?.value || currentConfig?.disaster || "").trim();
 
-  const arr = photos
-    .filter(p => {
-      const pDisaster = String(p.disaster || "").trim();
-      return !pDisaster || pDisaster === disaster;
-    })
-    .sort((a, b) =>
-      String(b.date || "").localeCompare(String(a.date || ""))
+  if (!apiBase) {
+    photoManageList.innerHTML =
+      `<div class="photo-manage-empty">업로드 API 주소가 설정되지 않았습니다.</div>`;
+    return;
+  }
+
+  photoManageList.innerHTML =
+    `<div class="photo-manage-empty">GitHub의 최신 사진 목록을 불러오는 중...</div>`;
+
+  try {
+    const response = await fetch(
+      `${apiBase}/photos?disaster=${encodeURIComponent(disaster)}`,
+      { cache: "no-store" }
     );
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(
+        result.error || `사진 목록 조회 실패 (${response.status})`
+      );
+    }
+
+    renderPhotoManageList(result.photos || []);
+
+  } catch (error) {
+    photoManageList.innerHTML =
+      `<div class="photo-manage-empty">${error.message || "사진 목록을 불러오지 못했습니다."}</div>`;
+  }
+}
+
+function renderPhotoManageList(arr) {
+  if (!photoManageList) return;
 
   photoManageList.innerHTML = "";
 
@@ -1925,40 +1958,44 @@ function renderPhotoManageList() {
     return;
   }
 
-  arr.forEach(p => {
-    const item = document.createElement("div");
-    item.className = "photo-manage-item";
+  arr
+    .sort((a, b) =>
+      String(b.date || "").localeCompare(String(a.date || ""))
+    )
+    .forEach(p => {
+      const item = document.createElement("div");
+      item.className = "photo-manage-item";
 
-    const location =
-      String(p.sgg || p.sido || "").trim();
+      const location =
+        String(p.sgg || p.sido || "").trim();
 
-    const filePath =
-      String(p.file || "").trim();
+      const filePath =
+        String(p.file || "").trim();
 
-    item.innerHTML = `
-      <img src="${filePath}" alt="현장사진 미리보기">
-      <div class="photo-manage-meta">
-        <b>${location || "지역 미입력"}</b>
-        <span>${p.caption || filePath}</span>
-      </div>
-      <button
-        type="button"
-        class="photo-delete-btn"
-        data-file="${filePath}"
-      >
-        삭제
-      </button>
-    `;
+      item.innerHTML = `
+        <img src="${filePath}" alt="현장사진 미리보기">
+        <div class="photo-manage-meta">
+          <b>${location || "지역 미입력"}</b>
+          <span>${p.caption || filePath}</span>
+        </div>
+        <button
+          type="button"
+          class="photo-delete-btn"
+          data-file="${filePath}"
+        >
+          삭제
+        </button>
+      `;
 
-    const button =
-      item.querySelector(".photo-delete-btn");
+      const button =
+        item.querySelector(".photo-delete-btn");
 
-    button.addEventListener("click", async () => {
-      await deleteManagedPhoto(p, button);
+      button.addEventListener("click", async () => {
+        await deleteManagedPhoto(p, button);
+      });
+
+      photoManageList.appendChild(item);
     });
-
-    photoManageList.appendChild(item);
-  });
 }
 
 async function deleteManagedPhoto(photo, button) {
@@ -2023,7 +2060,7 @@ async function deleteManagedPhoto(photo, button) {
     uploadStatus.textContent =
       "사진 삭제가 완료되었습니다. Render 자동 재배포 후 공개화면에도 반영됩니다.";
 
-    renderPhotoManageList();
+    await loadPhotoManageList();
     renderAllPhotos();
 
   } catch (error) {
