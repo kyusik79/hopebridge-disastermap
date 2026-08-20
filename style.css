@@ -1792,3 +1792,31 @@ body.photo-lightbox-open{
     text-align:left;
   }
 }
+
+@media(max-width:800px){
+
+  .title-wrap{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:5px;
+    padding-left:0;
+  }
+
+  .title-wrap h1{
+    margin:0;
+    white-space:nowrap;
+    font-size:28px;
+    line-height:1.15;
+    letter-spacing:-1.4px;
+  }
+
+  .title-wrap span{
+    display:block;
+    white-space:nowrap;
+    font-size:14px;
+    line-height:1.35;
+    color:#7d8490;
+  }
+
+}
