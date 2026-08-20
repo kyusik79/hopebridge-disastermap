@@ -4,7 +4,7 @@ const mapWrap = document.getElementById("map-wrap");
 const loadingEl = document.getElementById("map-loading");
 const errorEl = document.getElementById("map-error");
 
-const DATA_FILE = "data/재난현장지도_표준화_데이터.xlsx";
+const DATA_FILE = "data/disaster_map_data.xlsx";
 const MAP_URL =
   "https://cdn.jsdelivr.net/gh/southkorea/southkorea-maps@master/gadm/json/skorea-municipalities-geo.json";
 
@@ -2225,7 +2225,7 @@ uploadSubmit.addEventListener("click", async () => {
     form.append("caption", caption);
 
     if (excelFile) {
-      form.append("excel", excelFile, "재난현장지도_표준화_데이터.xlsx");
+      form.append("excel", excelFile, "disaster_map_data.xlsx");
     }
 
     for (let i = 0; i < photoFiles.length; i++) {
