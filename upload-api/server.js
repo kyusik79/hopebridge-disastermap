@@ -80,7 +80,7 @@ app.post(
         }
 
         await putGitHubFile(
-          "data/disaster_map_data.xlsx",
+          "data/재난현장지도_표준화_데이터.xlsx",
           excel.buffer,
           "Update disaster map Excel data"
         );
