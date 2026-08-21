@@ -1829,3 +1829,247 @@ body.photo-lightbox-open{
   }
   
 }
+
+.photo-carousel-viewport{
+  position:relative;
+  overflow:hidden;
+  margin-top:2px;
+}
+
+/*
+  PC:
+  - 한 화면에 약 4장
+  - 다음 사진이 살짝 보이도록 4.15장 정도의 폭으로 구성
+*/
+.photo-carousel-viewport .photo-grid{
+  display:grid !important;
+  grid-auto-flow:column;
+  grid-auto-columns:calc((100% - 3 * 10px - 34px) / 4);
+  grid-template-columns:none !important;
+  gap:10px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scroll-snap-type:x mandatory;
+  scroll-behavior:smooth;
+  overscroll-behavior-inline:contain;
+  -webkit-overflow-scrolling:touch;
+  padding:0 34px 8px 0;
+  scrollbar-width:none;
+
+  /*
+    양 끝 사진이 살짝 흐려져서
+    좌우에 더 있다는 느낌을 줍니다.
+  */
+  -webkit-mask-image:
+    linear-gradient(
+      to right,
+      rgba(0,0,0,.78) 0,
+      #000 22px,
+      #000 calc(100% - 28px),
+      rgba(0,0,0,.24) 100%
+    );
+  mask-image:
+    linear-gradient(
+      to right,
+      rgba(0,0,0,.78) 0,
+      #000 22px,
+      #000 calc(100% - 28px),
+      rgba(0,0,0,.24) 100%
+    );
+}
+
+.photo-carousel-viewport .photo-grid::-webkit-scrollbar{
+  display:none;
+}
+
+.photo-carousel-viewport .photo-card{
+  min-width:0;
+  scroll-snap-align:start;
+  scroll-snap-stop:normal;
+}
+
+/* 좌우 이동 버튼 */
+.photo-carousel-btn{
+  position:absolute;
+  top:50%;
+  z-index:12;
+  width:34px;
+  height:54px;
+  transform:translateY(-50%);
+  border:1px solid rgba(255,255,255,.72);
+  border-radius:10px;
+  background:rgba(20,24,31,.56);
+  color:#fff;
+  font-size:30px;
+  line-height:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  box-shadow:0 3px 14px rgba(0,0,0,.12);
+  backdrop-filter:blur(4px);
+  transition:
+    opacity .18s ease,
+    background .18s ease;
+}
+
+.photo-carousel-btn:hover{
+  background:rgba(20,24,31,.76);
+}
+
+.photo-carousel-btn.prev{
+  left:6px;
+}
+
+.photo-carousel-btn.next{
+  right:6px;
+}
+
+.photo-carousel-btn:disabled{
+  opacity:0;
+  pointer-events:none;
+}
+
+/* 사진이 4장 이하라 스크롤이 필요 없으면 버튼 제거 */
+.photo-carousel-viewport:not(.has-overflow) .photo-carousel-btn{
+  display:none;
+}
+
+.photo-carousel-viewport:not(.has-overflow) .photo-grid{
+  padding-right:0;
+  -webkit-mask-image:none;
+  mask-image:none;
+}
+
+/*
+  처음 위치에서는 왼쪽에는 이전 사진이 없으므로
+  왼쪽 페이드는 제거하고 오른쪽만 살짝 흐리게.
+*/
+.photo-carousel-viewport.at-start.has-overflow .photo-grid{
+  -webkit-mask-image:
+    linear-gradient(
+      to right,
+      #000 0,
+      #000 calc(100% - 28px),
+      rgba(0,0,0,.24) 100%
+    );
+  mask-image:
+    linear-gradient(
+      to right,
+      #000 0,
+      #000 calc(100% - 28px),
+      rgba(0,0,0,.24) 100%
+    );
+}
+
+/* 마지막 위치에서는 오른쪽 페이드 제거 */
+.photo-carousel-viewport.at-end.has-overflow .photo-grid{
+  -webkit-mask-image:
+    linear-gradient(
+      to right,
+      rgba(0,0,0,.24) 0,
+      #000 28px,
+      #000 100%
+    );
+  mask-image:
+    linear-gradient(
+      to right,
+      rgba(0,0,0,.24) 0,
+      #000 28px,
+      #000 100%
+    );
+}
+
+/* 모바일 */
+@media(max-width:800px){
+
+  /*
+    모바일은 한 장을 충분히 크게 보여주면서
+    다음 사진의 약 18% 정도를 노출합니다.
+  */
+  .photo-carousel-viewport .photo-grid{
+    grid-auto-columns:82%;
+    gap:10px;
+    padding-right:18%;
+    padding-bottom:6px;
+
+    -webkit-mask-image:
+      linear-gradient(
+        to right,
+        rgba(0,0,0,.88) 0,
+        #000 12px,
+        #000 calc(100% - 22px),
+        rgba(0,0,0,.25) 100%
+      );
+    mask-image:
+      linear-gradient(
+        to right,
+        rgba(0,0,0,.88) 0,
+        #000 12px,
+        #000 calc(100% - 22px),
+        rgba(0,0,0,.25) 100%
+      );
+  }
+
+  .photo-carousel-btn{
+    width:30px;
+    height:48px;
+    border-radius:9px;
+    font-size:27px;
+    background:rgba(20,24,31,.48);
+  }
+
+  .photo-carousel-btn.prev{
+    left:4px;
+  }
+
+  .photo-carousel-btn.next{
+    right:4px;
+  }
+
+  /*
+    모바일에서는 손가락 스와이프가 기본이므로
+    버튼이 사진을 과하게 가리지 않게 조금 투명하게.
+  */
+  .photo-carousel-btn:not(:hover){
+    opacity:.82;
+  }
+
+  .photo-carousel-btn:disabled{
+    opacity:0;
+  }
+
+  .photo-carousel-viewport.at-start.has-overflow .photo-grid{
+    -webkit-mask-image:
+      linear-gradient(
+        to right,
+        #000 0,
+        #000 calc(100% - 22px),
+        rgba(0,0,0,.25) 100%
+      );
+    mask-image:
+      linear-gradient(
+        to right,
+        #000 0,
+        #000 calc(100% - 22px),
+        rgba(0,0,0,.25) 100%
+      );
+  }
+
+  .photo-carousel-viewport.at-end.has-overflow .photo-grid{
+    -webkit-mask-image:
+      linear-gradient(
+        to right,
+        rgba(0,0,0,.25) 0,
+        #000 22px,
+        #000 100%
+      );
+    mask-image:
+      linear-gradient(
+        to right,
+        rgba(0,0,0,.25) 0,
+        #000 22px,
+        #000 100%
+      );
+  }
+}
