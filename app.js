@@ -1961,6 +1961,128 @@ function attachPhotoLightboxClick(anchor, photoArray, index) {
   });
 }
 
+
+/* =========================================================
+   v31: 현장사진 가로 캐러셀
+   - PC: 약 4장 + 다음 사진 일부 노출
+   - 모바일: 1장 + 다음 사진 일부 노출
+   - 좌/우 버튼, 마우스/터치 스크롤, scroll-snap 지원
+========================================================= */
+
+function ensurePhotoCarousel() {
+  const grid = document.getElementById("photo-grid");
+  if (!grid) return null;
+
+  let viewport = document.getElementById("photo-carousel-viewport");
+  if (viewport) return viewport;
+
+  const parent = grid.parentElement;
+
+  viewport = document.createElement("div");
+  viewport.id = "photo-carousel-viewport";
+  viewport.className = "photo-carousel-viewport";
+
+  parent.insertBefore(viewport, grid);
+  viewport.appendChild(grid);
+
+  const prev = document.createElement("button");
+  prev.id = "photo-carousel-prev";
+  prev.className = "photo-carousel-btn prev";
+  prev.type = "button";
+  prev.setAttribute("aria-label", "이전 사진");
+  prev.innerHTML = "‹";
+
+  const next = document.createElement("button");
+  next.id = "photo-carousel-next";
+  next.className = "photo-carousel-btn next";
+  next.type = "button";
+  next.setAttribute("aria-label", "다음 사진");
+  next.innerHTML = "›";
+
+  viewport.appendChild(prev);
+  viewport.appendChild(next);
+
+  const scrollByPage = direction => {
+    const firstCard = grid.querySelector(".photo-card");
+    if (!firstCard) return;
+
+    const gap =
+      parseFloat(getComputedStyle(grid).columnGap || getComputedStyle(grid).gap || "10") || 10;
+
+    const cardWidth =
+      firstCard.getBoundingClientRect().width;
+
+    const visibleCount =
+      window.innerWidth <= 800 ? 1 : 4;
+
+    const amount =
+      (cardWidth + gap) * visibleCount * direction;
+
+    grid.scrollBy({
+      left: amount,
+      behavior: "smooth"
+    });
+  };
+
+  prev.addEventListener("click", event => {
+    event.stopPropagation();
+    scrollByPage(-1);
+  });
+
+  next.addEventListener("click", event => {
+    event.stopPropagation();
+    scrollByPage(1);
+  });
+
+  const updateState = () => {
+    const maxScroll =
+      Math.max(0, grid.scrollWidth - grid.clientWidth);
+
+    const atStart =
+      grid.scrollLeft <= 3;
+
+    const atEnd =
+      grid.scrollLeft >= maxScroll - 3;
+
+    viewport.classList.toggle("at-start", atStart);
+    viewport.classList.toggle("at-end", atEnd);
+
+    prev.disabled = atStart;
+    next.disabled = atEnd;
+
+    const hasOverflow =
+      maxScroll > 5;
+
+    viewport.classList.toggle("has-overflow", hasOverflow);
+  };
+
+  grid.addEventListener("scroll", () => {
+    window.requestAnimationFrame(updateState);
+  });
+
+  window.addEventListener(
+    "resize",
+    debounce(updateState, 120)
+  );
+
+  viewport._updateCarouselState = updateState;
+
+  return viewport;
+}
+
+function resetPhotoCarousel() {
+  const grid = document.getElementById("photo-grid");
+  const viewport = ensurePhotoCarousel();
+
+  if (!grid || !viewport) return;
+
+  grid.scrollLeft = 0;
+
+  requestAnimationFrame(() => {
+    viewport._updateCarouselState?.();
+  });
+}
+
 function renderPhotos(record) {
   const recordSido =
     String(record["시도"] || record["시도/권역"] || "").trim();
@@ -2047,6 +2169,8 @@ function renderPhotos(record) {
 
     grid.appendChild(a);
   });
+
+  resetPhotoCarousel();
 }
 
 function renderAllPhotos() {
@@ -2073,6 +2197,7 @@ function renderAllPhotos() {
   if (!arr.length) {
     empty.textContent =
       "현재 재해에 등록된 현장사진이 없습니다.";
+    resetPhotoCarousel();
     return;
   }
 
@@ -2102,6 +2227,8 @@ function renderAllPhotos() {
 
     grid.appendChild(a);
   });
+
+  resetPhotoCarousel();
 }
 
 /*
